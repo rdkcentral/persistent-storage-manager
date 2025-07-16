@@ -270,10 +270,9 @@ TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_bNeedFlushFalse) {
 
     // Properly link dependencies
     testMyObject->bNeedFlush = FALSE;
-    testMyObject->pPsmFileLoader = testPsmFileLoader;
-    testMyObject->hSysIraIf = (ANSC_HANDLE)testIraInterface;
-    testMyObject->hDbusHandle = (ANSC_HANDLE)1; // Mock handle or stub
-
+    testMyObject->hPsmFileLoader = (ANSC_HANDLE)testPsmFileLoader;
+    testMyObject->hSysRamIf = (ANSC_HANDLE)testIraInterface;
+    
     ANSC_STATUS ret = PsmSysroRegTimerInvoke((ANSC_HANDLE)testMyObject);
     EXPECT_EQ(ret, ANSC_STATUS_SUCCESS);
 
