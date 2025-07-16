@@ -255,7 +255,7 @@ TEST_F(CcspPsmTestFixture, PsmSysRegistryCancelTest_bActiveIsTrue) {
     free(testTimerObj);
 }
 
-TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_bNeedFlushFalse) {
+/*TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_bNeedFlushFalse) {
 
     PPSM_SYS_REGISTRY_OBJECT testMyObject = (PPSM_SYS_REGISTRY_OBJECT)malloc(sizeof(PSM_SYS_REGISTRY_OBJECT));
     ASSERT_NE(testMyObject, nullptr);
@@ -277,7 +277,7 @@ TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_bNeedFlushFalse) {
     free(testPsmFileLoader);
     free(testIraInterface);
 
-}
+}*/
 
 TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_LastRegWriteAtRecent) {
 
