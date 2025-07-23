@@ -256,7 +256,6 @@ TEST_F(CcspPsmTestFixture, PsmSysRegistryCancelTest_bActiveIsTrue) {
 }
 
 TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_bNeedFlushFalse) {
-
     PPSM_SYS_REGISTRY_OBJECT testMyObject = (PPSM_SYS_REGISTRY_OBJECT)malloc(sizeof(PSM_SYS_REGISTRY_OBJECT));
     ASSERT_NE(testMyObject, nullptr);
     memset(testMyObject, 0, sizeof(PSM_SYS_REGISTRY_OBJECT));
@@ -269,14 +268,17 @@ TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_bNeedFlushFalse) {
     ASSERT_NE(testIraInterface, nullptr);
     memset(testIraInterface, 0, sizeof(SYS_IRA_INTERFACE));
 
+    // Properly link dependencies
     testMyObject->bNeedFlush = FALSE;
+    testMyObject->hPsmFileLoader = (ANSC_HANDLE)testPsmFileLoader;
+    testMyObject->hSysRamIf = (ANSC_HANDLE)testIraInterface;
+    
     ANSC_STATUS ret = PsmSysroRegTimerInvoke((ANSC_HANDLE)testMyObject);
     EXPECT_EQ(ret, ANSC_STATUS_SUCCESS);
 
     free(testMyObject);
     free(testPsmFileLoader);
     free(testIraInterface);
-
 }
 
 TEST_F(CcspPsmTestFixture, PsmSysroRegTimerInvokeTest_LastRegWriteAtRecent) {
