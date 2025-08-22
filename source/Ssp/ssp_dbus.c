@@ -883,7 +883,7 @@ int  setParameterValues(
     PPSM_FILE_LOADER_OBJECT         pPsmFileLoader      = (PPSM_FILE_LOADER_OBJECT    )pPsmSysRegistry->hPsmFileLoader;
     PANSC_TIMER_DESCRIPTOR_OBJECT   pRegTimerObj    = (PANSC_TIMER_DESCRIPTOR_OBJECT)pPsmSysRegistry->hRegTimerObj;
     int                             i;
-    char		oldValBuf[512] = {0};
+    char                oldValBuf[1024] = {0};
     ULONG		ulRecordType;
     ULONG		ulRecordSize;
     errno_t             rc = -1;
