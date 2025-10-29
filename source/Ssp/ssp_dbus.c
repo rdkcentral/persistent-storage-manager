@@ -847,6 +847,21 @@ int  getParameterValues(
     *param_val = val;
 
 EXIT:
+	if (pParameterValue)
+	{
+		if(pParameterValue->val)
+		{
+			if(pParameterValue->val->parameterName)
+			{
+				AnscFreeMemory(pParameterValue->val->parameterName);
+				pParameterValue->val->parameterName = NULL;
+	
+			}
+			AnscFreeMemory(pParameterValue->val);
+			pParameterValue->val=NULL;
+		}
+		pParameterValue= NULL;
+	}
 
     if ( hSysRoot )
     {
