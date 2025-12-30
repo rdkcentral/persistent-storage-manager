@@ -495,6 +495,17 @@ PsmSysroInitialize
     pMyObject->FileSyncRefCount      = 0;
     pMyObject->bNoSave               = TRUE;           /* do NOT allow save until being notified  */
     pMyObject->bNeedFlush            = FALSE;          /* indicate whether save is required       */
+    /* Coverity Fix CID:158659 - Avoid double mutex initialization */
+    if (pthread_mutex_trylock(&pMyObject->AccessLock) != 0)  // Try locking to check if the mutex is uninitialized
+    {
+        // If the mutex is uninitialized, initialize it
+        pthread_mutex_init(&pMyObject->AccessLock, NULL);  // Initialize the mutex
+    }
+    else
+    {
+        // If the mutex is already initialized, unlock it
+        pthread_mutex_unlock(&pMyObject->AccessLock);
+    }
     /*Coverity Fix CID:135586 */
     AnscAcquireLock(&pMyObject->AccessLock);
     pMyObject->bSaveInProgress       = FALSE;          /* indicate whether save is in progress    */
@@ -532,7 +543,6 @@ PsmSysroInitialize
     pMyObject->SysRamEnableFileSync  = PsmSysroSysRamEnableFileSync;
     pMyObject->SysRamNotify          = PsmSysroSysRamNotify;
 
-    AnscInitializeLock(&pMyObject->AccessLock);
 
     /*
      * We shall initialize the object properties to the default values, which may be changed later
