@@ -273,37 +273,35 @@ PsmSysroRegTimerInvoke
     PPSM_FILE_LOADER_OBJECT        pPsmFileLoader    = (PPSM_FILE_LOADER_OBJECT   )pMyObject->hPsmFileLoader;
     PSYS_IRA_INTERFACE              pSysIraIf          = (PSYS_IRA_INTERFACE         )pPsmFileLoader->hSysIraIf;
 
-    // Fix for CID 559737: Guard the modification of bNeedFlush and the read used to decide whether to modify bNeedFlush with the same set of locks.
-    // Ensuring that both read and write of bNeedFlush are protected by the AccessLock to avoid thread race conditions.
-    
-    AnscAcquireLock(&pMyObject->AccessLock);  // Acquiring the lock before reading or modifying shared data
-
     if ( !pMyObject->bNeedFlush )
     {
-        AnscReleaseLock(&pMyObject->AccessLock);  
         return  ANSC_STATUS_SUCCESS;
     }
     else if ( (AnscGetTickInSeconds() - pMyObject->LastRegWriteAt) < PSM_SYSRO_REG_FLUSH_DELAY )
     {
-        AnscReleaseLock(&pMyObject->AccessLock);  
         return  ANSC_STATUS_SUCCESS;
     }
 
+//    CcspTraceInfo(("\n##PsmSysRegistry.RegTimerInvoke() begins##\n"));
+
+    AnscAcquireLock(&pMyObject->AccessLock);
     pSysIraIf->AcqThreadLock(pSysIraIf->hOwnerContext);
 
     if ( pMyObject->FileSyncRefCount > 0 )
     {
         returnStatus = ANSC_STATUS_SUCCESS;
-	goto EXIT1;
+
+        goto  EXIT1;
     }
 
     pMyObject->bSaveInProgress = TRUE;
 
     returnStatus = pPsmFileLoader->SaveRegFile((ANSC_HANDLE)pPsmFileLoader);
 
-    pMyObject->bNeedFlush      = FALSE;  // Fix for CID 559737: Ensure this is done within the locked region
+    pMyObject->bNeedFlush      = FALSE;
     pMyObject->bSaveInProgress = FALSE;
     pMyObject->LastRegFlushAt  = AnscGetTickInSeconds();
+
 
     /******************************************************************
                 GRACEFUL ROLLBACK PROCEDURES AND EXIT DOORS
@@ -312,9 +310,9 @@ PsmSysroRegTimerInvoke
 EXIT1:
 
     pSysIraIf->RelThreadLock(pSysIraIf->hOwnerContext);
-    AnscReleaseLock(&pMyObject->AccessLock);  
+    AnscReleaseLock(&pMyObject->AccessLock);
 
-    return returnStatus;  
+//    CcspTraceInfo(("\n##PsmSysRegistry.RegTimerInvoke() ends##\n"));
+
+    return  returnStatus;
 }
-
-
