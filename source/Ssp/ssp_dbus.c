@@ -732,6 +732,7 @@ int  getParameterValues(
                 if(pParameterValue != NULL)
 		{
 			AnscFreeMemory(pParameterValue);
+                        pParameterValue = NULL;  // CID 151687: Set the pointer to NULL after freeing to avoid double free
 		}
                 ret = CCSP_FAILURE;
                 goto EXIT;
@@ -799,7 +800,11 @@ int  getParameterValues(
                     else
                     {
                         AnscFreeMemory(pParameterValue->val);
-                        AnscFreeMemory(pParameterValue);
+                        if (pParameterValue != NULL)
+                        { 
+                            AnscFreeMemory(pParameterValue);  // CID 151687:Second free (this won't be called if pParameterValue is already freed)
+                            pParameterValue = NULL;  // Set to NULL after freeing
+                        }
                     }
                 }
                 else
