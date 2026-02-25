@@ -724,6 +724,7 @@ static int import_custom_params(int overwrite)
     int                 cus_cnt;
     int                 i, err = -1;
 
+    CcspTraceInfo(("%s: Called\n", __FUNCTION__));
     if (PsmHal_GetCustomParams(&cus_params, &cus_cnt) != 0)
         return -1;
 
@@ -746,6 +747,7 @@ static int import_custom_params(int overwrite)
         }
     }
 
+    CcspTraceInfo(("%s: finished importing custom params\n", __FUNCTION__));
 #ifdef _ONESTACK_PRODUCT_REQ_
     CcspTraceInfo(("%s: importing custom params from BCI\n", __FUNCTION__));
     if (is_devicemode_business()) {
@@ -1552,6 +1554,7 @@ again:
         }
     }
 
+    CcspTraceInfo(("%s: Calling import_custom_params with overwrite=0\n", __FUNCTION__));
     /* import customer params without overwrite */
     if (import_custom_params(0) != 0)
         CcspTraceError(("%s: Fail to import custom params\n", __FUNCTION__));
@@ -1635,6 +1638,7 @@ ssp_CfmReadDefConfig
         return ANSC_STATUS_FAILURE;
     }
 
+    CcspTraceInfo(("%s: Calling import_custom_params with overwrite=1\n", __FUNCTION__));
     /* import customer params and overwrite if exist */
     if (import_custom_params(1) != 0) {
         CcspTraceError(("%s: Fail to import custom params\n", __FUNCTION__));
