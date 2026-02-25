@@ -38,6 +38,7 @@ AC_ARG_ENABLE([unitTestDockerSupport],
              ],
              [echo "Docker support is disabled"])
 AM_CONDITIONAL([UNIT_TEST_DOCKER_SUPPORT], [test x$UNIT_TEST_DOCKER_SUPPORT = xtrue])
+AM_CONDITIONAL([ONESTACK_PRODUCT_REQ], [test "x$ONESTACK_PRODUCT_REQ" = "xtrue"])
 
 AC_PREFIX_DEFAULT(`pwd`)
 AC_ENABLE_SHARED
