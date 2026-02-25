@@ -265,6 +265,8 @@ static int is_core_dump_opened(void)
 }
 #endif
 
+syscfg_lmdb_t *g_lmdb_ctx = NULL;
+
 int main(int argc, char* argv[])
 {
     int                             cmdChar            = 0;
@@ -383,6 +385,15 @@ int main(int argc, char* argv[])
     if(ret != 0){
         return 1;
     }
+
+    // LMDB initialization (after PSM DB init)
+    int lmdb_rc = syscfg_lmdb_open(&g_lmdb_ctx, LMDB_PERSIST_DIR, MAPSIZE, 0); // Use defaults
+    if (lmdb_rc != 0) {
+        CcspTraceError(("Failed to initialize LMDB: %d\n", lmdb_rc));
+        return 1;
+    }
+    CcspTraceInfo(("LMDB initialized successfully\n"));
+
     creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if(!blocklist_ret){
         update_process_caps(&appcaps);
@@ -423,6 +434,12 @@ int main(int argc, char* argv[])
         bEngaged = FALSE;
     }
 
+    // Cleanup LMDB context
+    if (g_lmdb_ctx) {
+        syscfg_lmdb_close(g_lmdb_ctx);
+        g_lmdb_ctx = NULL;
+    }
+
     return 0;
 }
 
@@ -432,6 +449,7 @@ int  cmd_dispatch(int  command)
     errno_t rc = -1;
     int ret = 0;
     CcspTraceInfo((" inside cmd_dispatch\n"));
+    
     switch ( command )
     {
         case    'e' :
@@ -578,5 +596,3 @@ int  gather_info()
 
     return  0;
 }
-
-

@@ -75,6 +75,13 @@
 #define  CCSP_COMPONENT_VERSION_PSM                 1
 #define  CCSP_COMPONENT_AUTHOR_PSM                  "Jian Wu"
 
+#include "syscfg_lmdb.h"
+#define LMDB_PERSIST_DIR "/nvram/syscfg_lmdb"
+#define MAPSIZE (8u * 1024u * 1024u)
+// LMDB context for syscfg_lmdb
+extern syscfg_lmdb_t *g_lmdb_ctx;
+
+
 int  cmd_dispatch(int  command);
 int  gather_info ();
 
