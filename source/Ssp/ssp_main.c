@@ -277,6 +277,7 @@ int main(int argc, char* argv[])
     int                             ret                = 0;
     bool                            blocklist_ret     = false;
 
+    CcspTraceInfo((" inside main\n"));
     // Buffer characters till newline for stdout and stderr
     setlinebuf(stdout);
     setlinebuf(stderr);
