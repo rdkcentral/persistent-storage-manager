@@ -100,6 +100,10 @@
 
 #include <sys/time.h>
 
+#ifdef _ONESTACK_PRODUCT_REQ_
+#include <devicemode.h>
+#endif
+
 int Psm_GetCustomPartnersParams( PsmHalParam_t **params, int *cnt1 );
 int Psm_ApplyCustomPartnersParams( PsmHalParam_t **params, int *cnt2 );
 
@@ -741,6 +745,34 @@ static int import_custom_params(int overwrite)
             goto out;
         }
     }
+
+#ifdef _ONESTACK_PRODUCT_REQ_
+    CcspTraceInfo(("%s: importing custom params from BCI\n", __FUNCTION__));
+    if (is_devicemode_business()) {
+        CcspTraceInfo(("%s: device in business mode, importing BCI params\n", __FUNCTION__));
+        if (PsmHal_GetBCIParams(&cus_params, &cus_cnt) != 0) {
+            return -1;
+        }
+        for (i = 0; i < cus_cnt; i++) {
+            if (!cus_params[i].name || !strlen(cus_params[i].name)) {
+                CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
+                continue;
+            }
+            rec = record_create(cus_params[i].name, "astr", NULL, cus_params[i].value);
+            if (rec == NULL) {
+                CcspTraceError(("%s: record_create fail\n", __FUNCTION__));
+                goto out;
+            }
+
+            if (insert_record(rec, overwrite) != 0) {
+                CcspTraceError(("%s: insert_record() fail\n", __FUNCTION__));
+                record_free(rec);
+                goto out;
+            }
+        }
+        CcspTraceInfo(("%s: finished importing BCI params\n", __FUNCTION__));
+    }
+#endif
 
     err = 0;
 

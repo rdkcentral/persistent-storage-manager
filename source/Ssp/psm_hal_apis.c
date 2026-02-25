@@ -823,3 +823,26 @@ PsmHal_RestoreFactoryDefaults
 {
     return  0;
 }
+
+#ifdef _ONESTACK_PRODUCT_REQ_
+int PsmHal_GetBCIParams( PsmHalParam_t **params, int *cnt)
+{
+    int c = 2;
+    CcspTraceInfo(("Inside %s, line %d\n", __FUNCTION__, __LINE__));
+    const char* https_cfg_dwnload = "dmsb.device.deviceinfo.X_RDKCENTRAL-COM_RFC.Feature.HTTPSConfigDownload.Enabled";
+    const char* https_cfg_dwnload_value = "1";
+
+    const char* wifiRestored_aftMig = "eRT.com.cisco.spvtg.ccsp.Device.WiFi.WiFiRestored_AfterMigration";
+    const char* wifiRestored_aftMig_value = "false";
+
+    *params = (PsmHalParam_t *) calloc(c, sizeof(PsmHalParam_t));
+    *cnt = c;
+    memcpy((*params)[0].name, https_cfg_dwnload, strlen(https_cfg_dwnload)+1);
+    memcpy((*params)[0].value, https_cfg_dwnload_value, strlen(https_cfg_dwnload_value)+1);
+
+    memcpy((*params)[1].name, wifiRestored_aftMig, strlen(wifiRestored_aftMig)+1);
+    memcpy((*params)[1].value, wifiRestored_aftMig_value, strlen(wifiRestored_aftMig_value)+1);
+
+    return 0;
+}
+#endif
