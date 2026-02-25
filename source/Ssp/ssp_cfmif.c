@@ -727,30 +727,28 @@ static int import_bci_params()
     int                 overwrite = 0;
 
     CcspTraceInfo(("%s: importing custom params from BCI\n", __FUNCTION__));
-    if (is_devicemode_business()) {
-        CcspTraceInfo(("%s: device in business mode, importing BCI params\n", __FUNCTION__));
-        if (PsmHal_GetBCIParams(&bci_params, &bci_cnt) != 0) {
-            return -1;
-        }
-        for (i = 0; i < bci_cnt; i++) {
-            if (!bci_params[i].name || !strlen(bci_params[i].name)) {
-                CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
-                continue;
-            }
-            rec = record_create(bci_params[i].name, "astr", NULL, bci_params[i].value);
-            if (rec == NULL) {
-                CcspTraceError(("%s: record_create fail\n", __FUNCTION__));
-                goto out;
-            }
-
-            if (insert_record(rec, overwrite) != 0) {
-                CcspTraceError(("%s: insert_record() fail\n", __FUNCTION__));
-                record_free(rec);
-                goto out;
-            }
-        }
-        CcspTraceInfo(("%s: finished importing BCI params\n", __FUNCTION__));
+    CcspTraceInfo(("%s: device in business mode, importing BCI params\n", __FUNCTION__));
+    if (PsmHal_GetBCIParams(&bci_params, &bci_cnt) != 0) {
+        return -1;
     }
+    for (i = 0; i < bci_cnt; i++) {
+        if (!bci_params[i].name || !strlen(bci_params[i].name)) {
+            CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
+            continue;
+        }
+        rec = record_create(bci_params[i].name, "astr", NULL, bci_params[i].value);
+        if (rec == NULL) {
+            CcspTraceError(("%s: record_create fail\n", __FUNCTION__));
+            goto out;
+        }
+
+        if (insert_record(rec, overwrite) != 0) {
+            CcspTraceError(("%s: insert_record() fail\n", __FUNCTION__));
+            record_free(rec);
+            goto out;
+        }
+    }
+    CcspTraceInfo(("%s: finished importing BCI params\n", __FUNCTION__));
 
     err = 0;
 
@@ -1671,6 +1669,17 @@ ssp_CfmReadDefConfig
         free_records();
         return ANSC_STATUS_FAILURE;
     }
+
+#ifdef _ONESTACK_PRODUCT_REQ_
+    if (is_devicemode_business()) {
+        CcspTraceInfo(("%s: Calling import_bci_params\n", __FUNCTION__));
+        if (import_bci_params(1) != 0)
+            CcspTraceError(("%s: Fail to import BCI params\n", __FUNCTION__));
+    }
+    else {
+        CcspTraceInfo(("%s: Skipping import_bci_params since device mode is not business\n", __FUNCTION__));
+    }
+#endif
 
     /* flush merged records to buffer */
     if (flush_records((char **)ppCfgBuffer,(size_t *) pulCfgSize) != 0) {
