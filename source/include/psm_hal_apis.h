@@ -121,6 +121,39 @@ PsmHal_GetCustomParams
         int *                       cnt
     );
 
+#ifdef _ONESTACK_PRODUCT_REQ_
+/*
+ *
+    Description:
+        This HAL API returns the Business platform specific persistent configuration
+        parameters.
+
+        Memory block of returned params is allocated inside of the routine
+        using malloc(). Caller is responsible to call free() to free the
+        memory after use.
+
+    Arguments:
+        PsmHalParam_t **            params,
+        Returns the retrieved configuration parameters. Memory block
+        is allocated in the routine and caller is responsible to free it.
+
+        int *                       cnt
+        Returns the number of parameters.
+
+    Returns:
+        0       - success
+        -1      - failure or no custom parameters
+ *
+ */
+int
+PsmHal_GetBCIParams
+    (
+        PsmHalParam_t **            params,
+        int *                       cnt
+    );
+
+#endif
+
 /*
  *
     Description:
