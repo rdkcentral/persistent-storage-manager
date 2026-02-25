@@ -77,6 +77,94 @@
 #include "psm_sysro_global.h"
 #include "safec_lib_common.h"
 
+/* =================================================================================
+ * NO-OP STUBS for removed XML/DOM paths (correct prototypes for Import/Export)
+ * ================================================================================= */
+
+/* import: (hThisObject, pBuf, ulBufSize, hReserved, ulFlags) -> ANSC_STATUS */
+static ANSC_STATUS
+PsmSysroNoopImport
+(
+    ANSC_HANDLE  hThisObject,
+    void*        pBuffer,
+    ULONG        ulBufSize,
+    ANSC_HANDLE  hReserved,
+    ULONG        ulFlags
+)
+{
+    UNREFERENCED_PARAMETER(hThisObject);
+    UNREFERENCED_PARAMETER(pBuffer);
+    UNREFERENCED_PARAMETER(ulBufSize);
+    UNREFERENCED_PARAMETER(hReserved);
+    UNREFERENCED_PARAMETER(ulFlags);
+    return ANSC_STATUS_SUCCESS;
+}
+
+/* export: (hThisObject, pBuf, pUlSize /*out* /, hReserved, ulFlags) -> ANSC_STATUS */
+static ANSC_STATUS
+PsmSysroNoopExport
+(
+    ANSC_HANDLE  hThisObject,
+    void*        pBuffer,
+    PULONG       pulBufSize,
+    ANSC_HANDLE  hReserved,
+    ULONG        ulFlags
+)
+{
+    UNREFERENCED_PARAMETER(hThisObject);
+    /* If caller passed a size pointer, just report 0 and don't touch pBuffer */
+    if (pulBufSize) { *pulBufSize = 0; }
+    UNREFERENCED_PARAMETER(pBuffer);
+    UNREFERENCED_PARAMETER(hReserved);
+    UNREFERENCED_PARAMETER(ulFlags);
+    return ANSC_STATUS_SUCCESS;
+}
+
+/* Generic success no-op for status-returning ops */
+static ANSC_STATUS
+PsmSysroNoopStatus(ANSC_HANDLE hThisObject)
+{
+    UNREFERENCED_PARAMETER(hThisObject);
+    return ANSC_STATUS_SUCCESS;
+}
+
+/* Return size = 0 */
+static ULONG
+PsmSysroNoopGetSize(ANSC_HANDLE hThisObject)
+{
+    UNREFERENCED_PARAMETER(hThisObject);
+    return 0;
+}
+
+/* CFM read returns empty buffer */
+static ANSC_STATUS
+PsmSysroNoopCfmRead
+(
+    ANSC_HANDLE hThisObject,
+    void**      ppCfgBuffer,
+    PULONG      pulCfgSize
+)
+{
+    UNREFERENCED_PARAMETER(hThisObject);
+    if (ppCfgBuffer) { *ppCfgBuffer = NULL; }
+    if (pulCfgSize)  { *pulCfgSize  = 0; }
+    return ANSC_STATUS_SUCCESS;
+}
+
+/* CFM save is a no-op */
+static ANSC_STATUS
+PsmSysroNoopCfmSave
+(
+    ANSC_HANDLE hThisObject,
+    void*       pCfgBuffer,
+    ULONG       ulCfgSize
+)
+{
+    UNREFERENCED_PARAMETER(hThisObject);
+    UNREFERENCED_PARAMETER(pCfgBuffer);
+    UNREFERENCED_PARAMETER(ulCfgSize);
+    return ANSC_STATUS_SUCCESS;
+}
 
 /**********************************************************************
 
@@ -190,53 +278,16 @@ PsmSysroRemove
         ANSC_HANDLE                 hThisObject
     )
 {
-    PPSM_SYS_REGISTRY_OBJECT        pMyObject          = (PPSM_SYS_REGISTRY_OBJECT    )hThisObject;
-    PPSM_CFM_INTERFACE              pPsmCfmIf          = (PPSM_CFM_INTERFACE          )pMyObject->hPsmCfmIf;
-    PPSM_FILE_LOADER_OBJECT         pPsmFileLoader     = (PPSM_FILE_LOADER_OBJECT     )pMyObject->hPsmFileLoader;
-    PSYS_RAM_INTERFACE              pSysRamIf          = (PSYS_RAM_INTERFACE           )pMyObject->hSysRamIf;
-    PSYS_INFO_REPOSITORY_OBJECT     pSysInfoRepository = (PSYS_INFO_REPOSITORY_OBJECT  )pMyObject->hSysInfoRepository;
-    PANSC_TIMER_DESCRIPTOR_OBJECT   pRegTimerObj       = (PANSC_TIMER_DESCRIPTOR_OBJECT)pMyObject->hRegTimerObj;
-    PANSC_TDO_CLIENT_OBJECT         pRegTimerIf        = (PANSC_TDO_CLIENT_OBJECT      )pMyObject->hRegTimerIf;
+    PPSM_SYS_REGISTRY_OBJECT        pMyObject    = (PPSM_SYS_REGISTRY_OBJECT)hThisObject;
+    PANSC_TDO_CLIENT_OBJECT         pRegTimerIf  = (PANSC_TDO_CLIENT_OBJECT)pMyObject->hRegTimerIf;
+    PANSC_TIMER_DESCRIPTOR_OBJECT   pRegTimerObj = (PANSC_TIMER_DESCRIPTOR_OBJECT)pMyObject->hRegTimerObj;
 
     pMyObject->Cancel((ANSC_HANDLE)pMyObject);
     pMyObject->Reset ((ANSC_HANDLE)pMyObject);
-//	CcspTraceInfo(("\n##PsmSysRoRemove() begins##\n"));
-    if ( pPsmCfmIf )
-    {
-        AnscFreeMemory(pPsmCfmIf);
 
-        pMyObject->hPsmCfmIf = (ANSC_HANDLE)NULL;
-    }
-
-    if ( pPsmFileLoader )
-    {
-        pPsmFileLoader->Remove((ANSC_HANDLE)pPsmFileLoader);
-
-        pMyObject->hPsmFileLoader = (ANSC_HANDLE)NULL;
-    }
-
-    if ( pSysRamIf )
-    {
-        AnscFreeMemory(pSysRamIf);
-
-        pMyObject->hSysRamIf = (ANSC_HANDLE)NULL;
-    }
-
-    if ( pSysInfoRepository )
-    {
-        pSysInfoRepository->Remove((ANSC_HANDLE)pSysInfoRepository);
-
-        pMyObject->hSysInfoRepository = (ANSC_HANDLE)NULL;
-    }
-    if ( pRegTimerObj )
-    {
-        pRegTimerObj->Remove((ANSC_HANDLE)pRegTimerObj);
-    }
-
-    if ( pRegTimerIf )
-    {
-        AnscFreeMemory(pRegTimerIf);
-    }
+    /* Free enrolled objects still present */
+    if (pRegTimerObj) { pRegTimerObj->Remove((ANSC_HANDLE)pRegTimerObj); }
+    if (pRegTimerIf)  { AnscFreeMemory(pRegTimerIf); }
 
     AnscFreeLock(&pMyObject->AccessLock);
     AnscCoRemove((ANSC_HANDLE)pMyObject);
@@ -276,161 +327,85 @@ PsmSysroEnrollObjects
         ANSC_HANDLE                 hThisObject
     )
 {
-    PPSM_SYS_REGISTRY_OBJECT        pMyObject          = (PPSM_SYS_REGISTRY_OBJECT    )hThisObject;
-    PPSM_CFM_INTERFACE              pPsmCfmIf          = (PPSM_CFM_INTERFACE          )pMyObject->hPsmCfmIf;
-    PPSM_FILE_LOADER_OBJECT         pPsmFileLoader     = (PPSM_FILE_LOADER_OBJECT     )pMyObject->hPsmFileLoader;
-    PSYS_RAM_INTERFACE              pSysRamIf          = (PSYS_RAM_INTERFACE           )pMyObject->hSysRamIf;
-    PSYS_INFO_REPOSITORY_OBJECT     pSysInfoRepository = (PSYS_INFO_REPOSITORY_OBJECT  )pMyObject->hSysInfoRepository;
+    PPSM_SYS_REGISTRY_OBJECT        pMyObject          = (PPSM_SYS_REGISTRY_OBJECT)hThisObject;
+    PSYS_RAM_INTERFACE              pSysRamIf          = (PSYS_RAM_INTERFACE)pMyObject->hSysRamIf;
+    PSYS_INFO_REPOSITORY_OBJECT     pSysInfoRepository = (PSYS_INFO_REPOSITORY_OBJECT)pMyObject->hSysInfoRepository;
     PANSC_TIMER_DESCRIPTOR_OBJECT   pRegTimerObj       = (PANSC_TIMER_DESCRIPTOR_OBJECT)pMyObject->hRegTimerObj;
-    PANSC_TDO_CLIENT_OBJECT         pRegTimerIf        = (PANSC_TDO_CLIENT_OBJECT      )pMyObject->hRegTimerIf;
+    PANSC_TDO_CLIENT_OBJECT         pRegTimerIf        = (PANSC_TDO_CLIENT_OBJECT)pMyObject->hRegTimerIf;
     errno_t                         rc                 = -1;
 
-//CcspTraceInfo(("\n##PsmSysroEnrollObjects() beginss##\n"));
-    if ( !pPsmCfmIf )
-    {
-        pPsmCfmIf = (PPSM_CFM_INTERFACE)AnscAllocateMemory(sizeof(PSM_CFM_INTERFACE));
+    /* Legacy XML/DOM subsystems removed:
+       - PPSM_CFM_INTERFACE pPsmCfmIf
+       - PPSM_FILE_LOADER_OBJECT pPsmFileLoader
+    */
 
-        if ( !pPsmCfmIf )
-        {
-            return  ANSC_STATUS_RESOURCES;
-        }
-        else
-        {
-            pMyObject->hPsmCfmIf = (ANSC_HANDLE)pPsmCfmIf;
-        }
-
-	rc = strcpy_s(pPsmCfmIf->Name, sizeof(pPsmCfmIf->Name), PSM_CFM_INTERFACE_NAME);
-	if(rc != EOK)
-        {
-	     ERR_CHK(rc);
-             free(pPsmCfmIf);
-	     return ANSC_STATUS_FAILURE;
-	}
-
-        pPsmCfmIf->InterfaceId   = PSM_CFM_INTERFACE_ID;
-        pPsmCfmIf->hOwnerContext = (ANSC_HANDLE)pMyObject;
-        pPsmCfmIf->Size          = sizeof(PSM_CFM_INTERFACE);
-
-        pPsmCfmIf->ReadCurConfig = PsmSysroCfmReadCurConfig;
-        pPsmCfmIf->ReadDefConfig = PsmSysroCfmReadDefConfig;
-        pPsmCfmIf->SaveCurConfig = PsmSysroCfmSaveCurConfig;
-    }
-
-    if ( !pPsmFileLoader )
-    {
-        pPsmFileLoader =
-            (PPSM_FILE_LOADER_OBJECT)PsmCreateFileLoader
-                (
-                    pMyObject->hContainerContext,
-                    (ANSC_HANDLE)pMyObject,
-                    (ANSC_HANDLE)NULL
-                );
-
-        if ( !pPsmFileLoader )
-        {
-            return  ANSC_STATUS_RESOURCES;
-        }
-        else
-        {
-            pMyObject->hPsmFileLoader = (ANSC_HANDLE)pPsmFileLoader;
-        }
-    }
-
-    if ( !pSysRamIf )
+    /* SysRamIf (kept; methods may be no-op stubs) */
+    if (!pSysRamIf)
     {
         pSysRamIf = (PSYS_RAM_INTERFACE)AnscAllocateMemory(sizeof(SYS_RAM_INTERFACE));
+        if (!pSysRamIf) { return ANSC_STATUS_RESOURCES; }
 
-        if ( !pSysRamIf )
-        {
-            return  ANSC_STATUS_RESOURCES;
-        }
-        else
-        {
-            pMyObject->hSysRamIf = (ANSC_HANDLE)pSysRamIf;
-        }
+        pMyObject->hSysRamIf = (ANSC_HANDLE)pSysRamIf;
 
         rc = strcpy_s(pSysRamIf->Name, sizeof(pSysRamIf->Name), SYS_RAM_INTERFACE_NAME);
-        if(rc != EOK)
-        {
-             ERR_CHK(rc);
-             free(pSysRamIf);
-             return ANSC_STATUS_FAILURE;
-        }
+        if (rc != EOK) { ERR_CHK(rc); AnscFreeMemory(pSysRamIf); return ANSC_STATUS_FAILURE; }
 
-        pSysRamIf->InterfaceId    = SYS_RAM_INTERFACE_ID;
-        pSysRamIf->hOwnerContext  = (ANSC_HANDLE)pMyObject;
-        pSysRamIf->Size           = sizeof(SYS_RAM_INTERFACE);
-
-        pSysRamIf->EnableFileSync = PsmSysroSysRamEnableFileSync;
-        pSysRamIf->Notify         = PsmSysroSysRamNotify;
+        pSysRamIf->InterfaceId   = SYS_RAM_INTERFACE_ID;
+        pSysRamIf->hOwnerContext = (ANSC_HANDLE)pMyObject;
+        pSysRamIf->Size          = sizeof(SYS_RAM_INTERFACE);
+        pSysRamIf->EnableFileSync= PsmSysroSysRamEnableFileSync; /* may be no-op */
+        pSysRamIf->Notify        = PsmSysroSysRamNotify;         /* may be no-op */
     }
 
-    if ( !pSysInfoRepository )
+    /* SysInfoRepository (kept if used by platform; remove if not needed) */
+    if (!pSysInfoRepository)
     {
         pSysInfoRepository =
             (PSYS_INFO_REPOSITORY_OBJECT)SysCreateInfoRepository
-                (
-                    pMyObject->hContainerContext,
-                    (ANSC_HANDLE)pMyObject,
-                    (ANSC_HANDLE)NULL
-                );
-
-        if ( !pSysInfoRepository )
-        {
-            return  ANSC_STATUS_RESOURCES;
-        }
-        else
-        {
-            pMyObject->hSysInfoRepository = (ANSC_HANDLE)pSysInfoRepository;
-        }
+            (
+                pMyObject->hContainerContext,
+                (ANSC_HANDLE)pMyObject,
+                (ANSC_HANDLE)NULL
+            );
+        if (!pSysInfoRepository) { return ANSC_STATUS_RESOURCES; }
+        pMyObject->hSysInfoRepository = (ANSC_HANDLE)pSysInfoRepository;
     }
 
-    if ( !pRegTimerObj )
+    /* Periodic registry timer (kept) */
+    if (!pRegTimerObj)
     {
         pRegTimerObj =
             (PANSC_TIMER_DESCRIPTOR_OBJECT)AnscCreateTimerDescriptor
-                (
-                    pMyObject->hContainerContext,
-                    (ANSC_HANDLE)pMyObject,
-                    (ANSC_HANDLE)NULL
-                );
+            (
+                pMyObject->hContainerContext,
+                (ANSC_HANDLE)pMyObject,
+                (ANSC_HANDLE)NULL
+            );
+        if (!pRegTimerObj) { return ANSC_STATUS_RESOURCES; }
 
-        if ( !pRegTimerObj )
-        {
-            return  ANSC_STATUS_RESOURCES;
-        }
-        else
-        {
-            pMyObject->hRegTimerObj = (ANSC_HANDLE)pRegTimerObj;
-        }
-
-        pRegTimerObj->SetTimerType((ANSC_HANDLE)pRegTimerObj, ANSC_TIMER_TYPE_PERIODIC     );
+        pMyObject->hRegTimerObj = (ANSC_HANDLE)pRegTimerObj;
+        pRegTimerObj->SetTimerType((ANSC_HANDLE)pRegTimerObj, ANSC_TIMER_TYPE_PERIODIC);
         pRegTimerObj->SetInterval ((ANSC_HANDLE)pRegTimerObj, PSM_SYSRO_REG_TIMER_INTERVAL);
         /* _ansc_strcpy(pRegTimerObj->Name, "PsmSysroRegTimer"); */
     }
 
-    if ( !pRegTimerIf )
+    if (!pRegTimerIf)
     {
         pRegTimerIf = (PANSC_TDO_CLIENT_OBJECT)AnscAllocateMemory(sizeof(ANSC_TDO_CLIENT_OBJECT));
+        if (!pRegTimerIf) { return ANSC_STATUS_RESOURCES; }
 
-        if ( !pRegTimerIf )
-        {
-            return  ANSC_STATUS_RESOURCES;
-        }
-        else
-        {
-            pMyObject->hRegTimerIf = (ANSC_HANDLE)pRegTimerIf;
-        }
-
+        pMyObject->hRegTimerIf      = (ANSC_HANDLE)pRegTimerIf;
         pRegTimerIf->hClientContext = (ANSC_HANDLE)pMyObject;
         pRegTimerIf->Invoke         = PsmSysroRegTimerInvoke;
 
-        pRegTimerObj->SetClient((ANSC_HANDLE)pRegTimerObj, (ANSC_HANDLE)pRegTimerIf);
+        if (pRegTimerObj)
+        {
+            pRegTimerObj->SetClient((ANSC_HANDLE)pRegTimerObj, (ANSC_HANDLE)pRegTimerIf);
+        }
     }
 
     AnscCoEnrollObjects((ANSC_HANDLE)pMyObject);
-//CcspTraceInfo(("\n##PsmSysroEnrollObjects() ends##\n"));
-    return  ANSC_STATUS_SUCCESS;
+    return ANSC_STATUS_SUCCESS;
 }
 
 
@@ -477,69 +452,65 @@ PsmSysroInitialize
      * the compiler will do it for you, such is not the case with C.
      */
     AnscCoInitialize((ANSC_HANDLE)pMyObject);
-//CcspTraceInfo(("\n##PsmSysroInitialize() beginss##\n"));
-    /*
-     * Although we have initialized some of the member fields in the "create" member function, we
-     * repeat the work here for completeness. While this simulation approach is pretty stupid from
-     * a C++/Java programmer perspective, it's the best we can get for universal embedded network
-     * programming. Before we develop our own operating system (don't expect that to happen any
-     * time soon), this is the way things gonna be.
-     */
-    pMyObject->Oid                   = PSM_SYS_REGISTRY_OID;
-    pMyObject->Create                = PsmSysroCreate;
-    pMyObject->Remove                = PsmSysroRemove;
-    pMyObject->EnrollObjects         = PsmSysroEnrollObjects;
-    pMyObject->Initialize            = PsmSysroInitialize;
-    pMyObject->LastRegWriteAt        = 0;
-    pMyObject->LastRegFlushAt        = 0;
-    pMyObject->FileSyncRefCount      = 0;
-    pMyObject->bNoSave               = TRUE;           /* do NOT allow save until being notified  */
-    pMyObject->bNeedFlush            = FALSE;          /* indicate whether save is required       */
-    /*Coverity Fix CID:135586 */
+
+    /* base wiring */
+    pMyObject->Oid            = PSM_SYS_REGISTRY_OID;
+    pMyObject->Create         = PsmSysroCreate;
+    pMyObject->Remove         = PsmSysroRemove;
+    pMyObject->EnrollObjects  = PsmSysroEnrollObjects;
+    pMyObject->Initialize     = PsmSysroInitialize;
+
+    /* state */
+    pMyObject->LastRegWriteAt   = 0;
+    pMyObject->LastRegFlushAt   = 0;
+    pMyObject->FileSyncRefCount = 0;
+    pMyObject->bNoSave          = TRUE;  /* do NOT allow save until being notified */
+    pMyObject->bNeedFlush       = FALSE; /* indicate whether save is required   */
+
+    /* protect */
     AnscAcquireLock(&pMyObject->AccessLock);
-    pMyObject->bSaveInProgress       = FALSE;          /* indicate whether save is in progress    */
+    pMyObject->bSaveInProgress = FALSE;
     AnscReleaseLock(&pMyObject->AccessLock);
-    pMyObject->bProcSeparation       = TRUE;           /* whether registry is in separate process */
-    pMyObject->bActive               = FALSE;
 
-    pMyObject->GetPsmSseIf           = PsmSysroGetPsmSseIf;
-    pMyObject->SetPsmSseIf           = PsmSysroSetPsmSseIf;
-    pMyObject->GetPsmFileLoader      = PsmSysroGetPsmFileLoader;
-    pMyObject->GetSysInfoRepository  = PsmSysroGetSysInfoRepository;
+    pMyObject->bProcSeparation = TRUE; /* whether registry is in separate process */
+    pMyObject->bActive         = FALSE;
 
-    pMyObject->GetProperty           = PsmSysroGetProperty;
-    pMyObject->SetProperty           = PsmSysroSetProperty;
-    pMyObject->ResetProperty         = PsmSysroResetProperty;
-    pMyObject->Reset                 = PsmSysroReset;
+    /* getters/setters */
+    pMyObject->GetPsmSseIf         = PsmSysroGetPsmSseIf;
+    pMyObject->SetPsmSseIf         = PsmSysroSetPsmSseIf;
+    pMyObject->GetPsmFileLoader    = PsmSysroGetPsmFileLoader;     /* now returns NULL */
+    pMyObject->GetSysInfoRepository= PsmSysroGetSysInfoRepository; /* valid if kept    */
+    pMyObject->GetProperty         = PsmSysroGetProperty;
+    pMyObject->SetProperty         = PsmSysroSetProperty;
+    pMyObject->ResetProperty       = PsmSysroResetProperty;
+    pMyObject->Reset               = PsmSysroReset;
 
-    pMyObject->Engage                = PsmSysroEngage;
-    pMyObject->Cancel                = PsmSysroCancel;
-    pMyObject->RegTimerInvoke        = PsmSysroRegTimerInvoke;
-
-    pMyObject->SetupEnv              = PsmSysroSetupEnv;
-    pMyObject->CloseEnv              = PsmSysroCloseEnv;
-
+    /* lifecycle */
+    pMyObject->Engage              = PsmSysroEngage;
+    pMyObject->Cancel              = PsmSysroCancel;
+    pMyObject->RegTimerInvoke      = PsmSysroRegTimerInvoke;
+    pMyObject->SetupEnv            = PsmSysroSetupEnv;
+    pMyObject->CloseEnv            = PsmSysroCloseEnv;
     pMyObject->ResetToFactoryDefault = PsmSysroResetToFactoryDefault;
-    pMyObject->ImportConfig          = PsmSysroImportConfig;
-    pMyObject->ExportConfig          = PsmSysroExportConfig;
-    pMyObject->GetConfigSize         = PsmSysroGetConfigSize;
-    pMyObject->SaveConfigToFlash     = PsmSysroSaveConfigToFlash;
 
-    pMyObject->CfmReadCurConfig      = PsmSysroCfmReadCurConfig;
-    pMyObject->CfmReadDefConfig      = PsmSysroCfmReadDefConfig;
-    pMyObject->CfmSaveCurConfig      = PsmSysroCfmSaveCurConfig;
+    /* XML/DOM persistence hooks -> NO-OPS */
+    pMyObject->ImportConfig        = PsmSysroNoopStatus;
+    pMyObject->ExportConfig        = PsmSysroNoopStatus;
+    pMyObject->GetConfigSize       = PsmSysroNoopGetSize;
+    pMyObject->SaveConfigToFlash   = PsmSysroNoopStatus;
 
-    pMyObject->SysRamEnableFileSync  = PsmSysroSysRamEnableFileSync;
-    pMyObject->SysRamNotify          = PsmSysroSysRamNotify;
+    pMyObject->CfmReadCurConfig    = PsmSysroNoopCfmRead;
+    pMyObject->CfmReadDefConfig    = PsmSysroNoopCfmRead;
+    pMyObject->CfmSaveCurConfig    = PsmSysroNoopCfmSave;
+
+    /* SysRam notifications (kept; may be stubs) */
+    pMyObject->SysRamEnableFileSync= PsmSysroSysRamEnableFileSync;
+    pMyObject->SysRamNotify        = PsmSysroSysRamNotify;
 
     AnscInitializeLock(&pMyObject->AccessLock);
 
-    /*
-     * We shall initialize the object properties to the default values, which may be changed later
-     * via the exposed member functions. If any of the future extensions needs to change the object
-     * property, the following code also needs to be changed.
-     */
+    /* initialize properties with defaults (no XML path defaults) */
     pMyObject->ResetProperty((ANSC_HANDLE)pMyObject);
-//    CcspTraceInfo(("\n##PsmSysroInitialize() ends##\n"));
-    return  ANSC_STATUS_SUCCESS;
+
+    return ANSC_STATUS_SUCCESS;
 }

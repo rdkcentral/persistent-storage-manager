@@ -345,9 +345,11 @@ static int getParameterNames_rbus(rbusObject_t inParams, rbusObject_t outParams)
     {
         nextLevel = rbusValue_GetBoolean(rbusProperty_GetValue(prop));
     }
+    CcspTraceInfo(("%s QUERY: parameterName=%s, nextLevel=%d\n", __func__, parameterName ? parameterName : "NULL", nextLevel));
     result = getParameterNames(parameterName, nextLevel, &size, &val, NULL);
     if (result == CCSP_SUCCESS)
     {
+        CcspTraceInfo(("%s RESULT: Found %d parameter names for query parameterName=%s\n", __func__, size, parameterName ? parameterName : "NULL"));
         for(i = 0; i < size; i++)
         {
             rbusValue_t writableValue;

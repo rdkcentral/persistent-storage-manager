@@ -39,22 +39,11 @@
 
 #include "ccsp_custom.h"
 
-#include "sys_definitions.h"
-#include "sys_cfg_repository.h"
-#include "sys_ifo_ira.h"
-
-#include "sys_iro_interface.h"
-#include "sys_iro_exported_api.h"
-
-#include "slap_definitions.h"
-
+/* Keep only the PSM SysRegistry headers (no XML/FileLoader/IRA) */
 #include "psm_co_name.h"
-#include "psm_flo_exported_api.h"
-#include "psm_flo_interface.h"
 #include "psm_properties.h"
 #include "psm_sysro_exported_api.h"
 #include "psm_sysro_interface.h"
-#include "psm_ifo_cfm.h"
 
 #include "ccsp_message_bus.h"
 #include "ccsp_base_api.h"
@@ -75,39 +64,18 @@
 #define  CCSP_COMPONENT_VERSION_PSM                 1
 #define  CCSP_COMPONENT_AUTHOR_PSM                  "Jian Wu"
 
+#include "syscfg_lmdb.h"
+#define LMDB_PERSIST_DIR "/nvram/syscfg_lmdb"
+#define MAPSIZE (8u * 1024u * 1024u)
+// LMDB context for syscfg_lmdb
+extern syscfg_lmdb_t *g_lmdb_ctx;
+
+
 int  cmd_dispatch(int  command);
 int  gather_info ();
 
 int  PsmDbusInit ();
 int  PsmRbusInit ();
-
-ANSC_STATUS
-ssp_CfmReadCurConfig
-    (
-        ANSC_HANDLE                 hThisObject,
-        void**                      ppCfgBuffer,
-        PULONG                      pulCfgSize
-    );
-
-ANSC_STATUS
-ssp_CfmReadDefConfig
-    (
-        ANSC_HANDLE                 hThisObject,
-        void**                      ppCfgBuffer,
-        PULONG                      pulCfgSize
-    );
-
-ANSC_STATUS
-ssp_CfmSaveCurConfig
-    (
-        ANSC_HANDLE                 hThisObject,
-        void*                       pCfgBuffer,
-        ULONG                       ulCfgSize
-    );
-
-
-ANSC_STATUS
-ssp_CfmUpdateConfigs(ANSC_HANDLE hThisObject, const char *newConfPath);
 
 int  setParameterValues(
     int sessionId,
