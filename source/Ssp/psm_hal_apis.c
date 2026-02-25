@@ -827,13 +827,19 @@ PsmHal_RestoreFactoryDefaults
 #ifdef _ONESTACK_PRODUCT_REQ_
 int PsmHal_GetBCIParams( PsmHalParam_t **params, int *cnt)
 {
-    int c = 2;
+    int c = 4;
     CcspTraceInfo(("Inside %s, line %d\n", __FUNCTION__, __LINE__));
     const char* https_cfg_dwnload = "dmsb.device.deviceinfo.X_RDKCENTRAL-COM_RFC.Feature.HTTPSConfigDownload.Enabled";
     const char* https_cfg_dwnload_value = "1";
 
     const char* wifiRestored_aftMig = "eRT.com.cisco.spvtg.ccsp.Device.WiFi.WiFiRestored_AfterMigration";
     const char* wifiRestored_aftMig_value = "false";
+
+    const char* atom_v4Addr = "dmsb.atom.l3net.4.V4Addr";
+    const char* atom_v4Addr_value = "10.1.10.254";
+
+    const char* l3net_v4Addr = "dmsb.l3net.4.V4Addr";
+    const char* l3net_v4Addr_value = "10.1.10.1";
 
     *params = (PsmHalParam_t *) calloc(c, sizeof(PsmHalParam_t));
     *cnt = c;
@@ -842,6 +848,12 @@ int PsmHal_GetBCIParams( PsmHalParam_t **params, int *cnt)
 
     memcpy((*params)[1].name, wifiRestored_aftMig, strlen(wifiRestored_aftMig)+1);
     memcpy((*params)[1].value, wifiRestored_aftMig_value, strlen(wifiRestored_aftMig_value)+1);
+
+    memcpy((*params)[2].name, atom_v4Addr, strlen(atom_v4Addr)+1);
+    memcpy((*params)[2].value, atom_v4Addr_value, strlen(atom_v4Addr_value)+1);
+
+    memcpy((*params)[3].name, l3net_v4Addr, strlen(l3net_v4Addr)+1);
+    memcpy((*params)[3].value, l3net_v4Addr_value, strlen(l3net_v4Addr_value)+1);
 
     return 0;
 }
