@@ -54,7 +54,7 @@ PsmSsp_SOURCES = \
 PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread
 
 if ONESTACK_PRODUCT_REQ
-PsmSsp_LDFLAGS += -L${PKG_CONFIG_SYSROOT_DIR}$(libdir) -ldevicemode -lonestack_syscfg -lonestack_log
+PsmSsp_LDFLAGS += -L${PKG_CONFIG_SYSROOT_DIR}$(libdir) -ldevicemode
 endif
 
 if IS_LIBRDKCONFIG_ENABLED
