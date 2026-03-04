@@ -13,6 +13,7 @@ void reverseString(char *str) {
         start++;
         end--;
     }
+    printf("string reversed : %s\n",str);
 }
 
 int main() {
