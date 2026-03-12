@@ -446,7 +446,6 @@ int main(int argc, char* argv[])
 
 int  cmd_dispatch(int  command)
 {
-    errno_t rc = -1;
     int ret = 0;
     CcspTraceInfo((" inside cmd_dispatch\n"));
     
@@ -454,87 +453,55 @@ int  cmd_dispatch(int  command)
     {
         case    'e' :
 
-                if ( !bEngaged )
-                {
-                    	   CcspTraceInfo((" inside case 'e' !bEngaged\n"));
-                    pPsmSysRegistry = (PPSM_SYS_REGISTRY_OBJECT)PsmCreateSysRegistry(NULL, NULL, NULL);
+				if (!bEngaged)
+				{
+					CcspTraceInfo((" inside case 'e' !bEngaged\n"));
 
-                    if ( pPsmSysRegistry )
-                    {
-                    	 CcspTraceInfo((" inside case 'e' !bEngaged-pPsmSysRegistry\n"));
-                        PSM_SYS_REGISTRY_PROPERTY      psmSysroProperty;
+					pPsmSysRegistry = (PPSM_SYS_REGISTRY_OBJECT)PsmCreateSysRegistry(NULL, NULL, NULL);
+					if (pPsmSysRegistry)
+					{
+						CcspTraceInfo((" inside case 'e' !bEngaged-pPsmSysRegistry\n"));
 
-                        AnscZeroMemory(&psmSysroProperty, sizeof(PSM_SYS_REGISTRY_PROPERTY));
-                        
-                        rc = strcpy_s(psmSysroProperty.SysFilePath, sizeof(psmSysroProperty.SysFilePath), PSM_DEF_XML_CONFIG_FILE_PATH);
-			if(rc != EOK)
-			{
-                            ERR_CHK(rc);
-			    return -1;
-			}
-                        rc = strcpy_s(psmSysroProperty.DefFileName, sizeof(psmSysroProperty.DefFileName), PSM_DEF_XML_CONFIG_FILE_NAME);
-			if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-			rc = strcpy_s(psmSysroProperty.CurFileName, sizeof(psmSysroProperty.CurFileName), PSM_CUR_XML_CONFIG_FILE_NAME);
-			if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-			rc = strcpy_s(psmSysroProperty.BakFileName, sizeof(psmSysroProperty.BakFileName), PSM_BAK_XML_CONFIG_FILE_NAME);
-			if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-			rc = strcpy_s(psmSysroProperty.TmpFileName, sizeof(psmSysroProperty.TmpFileName), PSM_TMP_XML_CONFIG_FILE_NAME);
-                        if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-                        pPsmSysRegistry->SetProperty((ANSC_HANDLE)pPsmSysRegistry, (ANSC_HANDLE)&psmSysroProperty);
+				#ifdef USE_PLATFORM_SPECIFIC_HAL
+						cfm_ifo.InterfaceId   = PSM_CFM_INTERFACE_ID;
+						cfm_ifo.hOwnerContext = (ANSC_HANDLE)pPsmSysRegistry;
+						cfm_ifo.Size          = sizeof(PSM_CFM_INTERFACE);
 
-#ifdef USE_PLATFORM_SPECIFIC_HAL
-                        cfm_ifo.InterfaceId   = PSM_CFM_INTERFACE_ID;
-                        cfm_ifo.hOwnerContext = (ANSC_HANDLE)pPsmSysRegistry;
-                        cfm_ifo.Size          = sizeof(PSM_CFM_INTERFACE);
+						cfm_ifo.ReadCurConfig = ssp_CfmReadCurConfig;
+						cfm_ifo.ReadDefConfig = ssp_CfmReadDefConfig;
+						cfm_ifo.SaveCurConfig = ssp_CfmSaveCurConfig;
+						cfm_ifo.UpdateConfigs = ssp_CfmUpdateConfigs;
 
-                        cfm_ifo.ReadCurConfig = ssp_CfmReadCurConfig;
-                        cfm_ifo.ReadDefConfig = ssp_CfmReadDefConfig;
-                        cfm_ifo.SaveCurConfig = ssp_CfmSaveCurConfig;
-                        cfm_ifo.UpdateConfigs = ssp_CfmUpdateConfigs;
+						if (pPsmSysRegistry->hPsmCfmIf)
+						{
+							AnscFreeMemory(pPsmSysRegistry->hPsmCfmIf);
+						}
+						pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)&cfm_ifo;
+				#endif /* USE_PLATFORM_SPECIFIC_HAL */
 
-                        if ( pPsmSysRegistry->hPsmCfmIf )
-                        {
-                            AnscFreeMemory(pPsmSysRegistry->hPsmCfmIf);
-                        }
+						pPsmSysRegistry->Engage((ANSC_HANDLE)pPsmSysRegistry);
 
-                        pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)&cfm_ifo;
-#endif
+						ret = PsmDbusInit();
+						if (ret != 0)
+						{
+							return -1;
+						}
 
-                        pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
-                        ret = PsmDbusInit();
-                        if(ret != 0)
-                           return -1;
+						PsmRbusInit();
 
-                        PsmRbusInit();
+						bEngaged = TRUE;
 
-                        bEngaged = TRUE;
+						CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM started ...\n"));
 
-                        CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM started ...\n"));
-#if !defined(INTEL_PUMA7) && !defined(_COSA_BCM_MIPS_) && !defined(_COSA_BCM_ARM_) && !defined(_COSA_QCA_ARM_)
-                        v_secure_system("sysevent set bring-lan up");
-#endif                      
-                    }
-                    else
-                    {
-                        CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : Create PSM Failed ...\n"));
-                    }
-                }
+				#if !defined(INTEL_PUMA7) && !defined(_COSA_BCM_MIPS_) && !defined(_COSA_BCM_ARM_)  && !defined(_COSA_QCA_ARM_)
+						v_secure_system("sysevent set bring-lan up");
+				#endif
+					}
+					else
+					{
+						CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : Create PSM Failed ...\n"));
+					}
+				}
 
                 break;
 
@@ -575,8 +542,8 @@ int  cmd_dispatch(int  command)
 
                 break;
     }
-    	   CcspTraceInfo((" cmd_dispatch exit\n"));
-    return  0;
+	CcspTraceInfo((" cmd_dispatch exit\n"));
+	return  0;
 }
 
 
