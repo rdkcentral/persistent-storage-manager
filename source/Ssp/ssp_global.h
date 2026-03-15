@@ -75,6 +75,12 @@
 #define  CCSP_COMPONENT_VERSION_PSM                 1
 #define  CCSP_COMPONENT_AUTHOR_PSM                  "Jian Wu"
 
+#include "sqlite_db.h"
+ 
+#ifndef SYSCFG_SQLITE_DB_PATH
+#define SYSCFG_SQLITE_DB_PATH "/nvram/syscfg_sqlite.db"
+#endif
+
 int  cmd_dispatch(int  command);
 int  gather_info ();
 

@@ -66,7 +66,6 @@
 #define DEBUG_INI_NAME "/etc/debug.ini"
 int GetLogInfo(ANSC_HANDLE bus_handle, char *Subsytem, char *pParameterName);
 BOOL                                bEngaged          = FALSE;
-PPSM_SYS_REGISTRY_OBJECT            pPsmSysRegistry   = (PPSM_SYS_REGISTRY_OBJECT)NULL;
 void                               *bus_handle        = NULL;
 char                                g_Subsystem[32]   = {0};
 BOOL                                g_bLogEnable      = FALSE;
@@ -191,12 +190,6 @@ void sig_handler(int sig)
     	CcspTraceInfo(("SIGUSR2 received!\n"));
         if ( bEngaged )
         {
-            if ( pPsmSysRegistry )
-            {
-                pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-                pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-            }
-
             bEngaged = FALSE;
 
     	    CcspTraceError(("Exit!\n"));
@@ -219,11 +212,8 @@ void sig_handler(int sig)
 	}
     else if (sig == SIGTERM ) {
         /* When PSM is terminated, make sure to save the config to flash before exiting so settings aren't lost */
-        if ( pPsmSysRegistry )
-        {
-            pPsmSysRegistry->SaveConfigToFlash(pPsmSysRegistry);
-        }
-	exit(0);
+        CcspTraceInfo(("SIGTERM make sure to save the config to flash before exiting so settings aren't lost!\n"));
+		exit(0);
     }
     else {
     	/* get stack trace first */
@@ -265,6 +255,8 @@ static int is_core_dump_opened(void)
 }
 #endif
 
+syscfg_sqlite_ctx_t *g_sqlite_ctx = NULL;
+
 int main(int argc, char* argv[])
 {
     int                             cmdChar            = 0;
@@ -277,6 +269,7 @@ int main(int argc, char* argv[])
     int                             ret                = 0;
     bool                            blocklist_ret     = false;
 
+    CcspTraceInfo((" inside main\n"));
     // Buffer characters till newline for stdout and stderr
     setlinebuf(stdout);
     setlinebuf(stderr);
@@ -382,6 +375,15 @@ int main(int argc, char* argv[])
     if(ret != 0){
         return 1;
     }
+
+    // sqlite initialization
+    rc = syscfg_sqlite_open(&g_sqlite_ctx, SYSCFG_SQLITE_DB_PATH);
+    if (rc != 0 || !g_sqlite_ctx) {
+        CcspTraceInfo(("syscfg_sqlite_open failed\n"));
+        return 1;
+    }
+    CcspTraceInfo(("sqlite initialized successfully\n"));
+
     creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if(!blocklist_ret){
         update_process_caps(&appcaps);
@@ -413,13 +415,13 @@ int main(int argc, char* argv[])
 
     if ( bEngaged )
     {
-        if ( pPsmSysRegistry )
-        {
-            pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-            pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-        }
-
         bEngaged = FALSE;
+    }
+
+    // Cleanup sqlite context
+	if (g_sqlite_ctx) {
+        syscfg_sqlite_close(g_sqlite_ctx);
+        g_sqlite_ctx = NULL;
     }
 
     return 0;
@@ -428,94 +430,38 @@ int main(int argc, char* argv[])
 
 int  cmd_dispatch(int  command)
 {
-    errno_t rc = -1;
     int ret = 0;
     CcspTraceInfo((" inside cmd_dispatch\n"));
+    
     switch ( command )
     {
         case    'e' :
 
-                if ( !bEngaged )
-                {
-                    	   CcspTraceInfo((" inside case 'e' !bEngaged\n"));
-                    pPsmSysRegistry = (PPSM_SYS_REGISTRY_OBJECT)PsmCreateSysRegistry(NULL, NULL, NULL);
+				if (!bEngaged)
+				{
+					CcspTraceInfo((" inside case 'e' !bEngaged\n"));
 
-                    if ( pPsmSysRegistry )
-                    {
-                    	 CcspTraceInfo((" inside case 'e' !bEngaged-pPsmSysRegistry\n"));
-                        PSM_SYS_REGISTRY_PROPERTY      psmSysroProperty;
+					/* Start buses directly (no PsmSysRegistry) */
+					ret = PsmDbusInit();
+					if (ret != 0)
+					{
+						return -1;
+					}
 
-                        AnscZeroMemory(&psmSysroProperty, sizeof(PSM_SYS_REGISTRY_PROPERTY));
-                        
-                        rc = strcpy_s(psmSysroProperty.SysFilePath, sizeof(psmSysroProperty.SysFilePath), PSM_DEF_XML_CONFIG_FILE_PATH);
-			if(rc != EOK)
-			{
-                            ERR_CHK(rc);
-			    return -1;
-			}
-                        rc = strcpy_s(psmSysroProperty.DefFileName, sizeof(psmSysroProperty.DefFileName), PSM_DEF_XML_CONFIG_FILE_NAME);
-			if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-			rc = strcpy_s(psmSysroProperty.CurFileName, sizeof(psmSysroProperty.CurFileName), PSM_CUR_XML_CONFIG_FILE_NAME);
-			if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-			rc = strcpy_s(psmSysroProperty.BakFileName, sizeof(psmSysroProperty.BakFileName), PSM_BAK_XML_CONFIG_FILE_NAME);
-			if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-			rc = strcpy_s(psmSysroProperty.TmpFileName, sizeof(psmSysroProperty.TmpFileName), PSM_TMP_XML_CONFIG_FILE_NAME);
-                        if(rc != EOK)
-			{
-			    ERR_CHK(rc);
-			    return -1;
-			}
-                        pPsmSysRegistry->SetProperty((ANSC_HANDLE)pPsmSysRegistry, (ANSC_HANDLE)&psmSysroProperty);
+					PsmRbusInit();
 
-#ifdef USE_PLATFORM_SPECIFIC_HAL
-                        cfm_ifo.InterfaceId   = PSM_CFM_INTERFACE_ID;
-                        cfm_ifo.hOwnerContext = (ANSC_HANDLE)pPsmSysRegistry;
-                        cfm_ifo.Size          = sizeof(PSM_CFM_INTERFACE);
+					bEngaged = TRUE;
 
-                        cfm_ifo.ReadCurConfig = ssp_CfmReadCurConfig;
-                        cfm_ifo.ReadDefConfig = ssp_CfmReadDefConfig;
-                        cfm_ifo.SaveCurConfig = ssp_CfmSaveCurConfig;
-                        cfm_ifo.UpdateConfigs = ssp_CfmUpdateConfigs;
+					CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM started ...\n"));
 
-                        if ( pPsmSysRegistry->hPsmCfmIf )
-                        {
-                            AnscFreeMemory(pPsmSysRegistry->hPsmCfmIf);
-                        }
-
-                        pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)&cfm_ifo;
-#endif
-
-                        pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
-                        ret = PsmDbusInit();
-                        if(ret != 0)
-                           return -1;
-
-                        PsmRbusInit();
-
-                        bEngaged = TRUE;
-
-                        CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM started ...\n"));
-#if !defined(INTEL_PUMA7) && !defined(_COSA_BCM_MIPS_) && !defined(_COSA_BCM_ARM_) && !defined(_COSA_QCA_ARM_)
-                        v_secure_system("sysevent set bring-lan up");
-#endif                      
-                    }
-                    else
-                    {
-                        CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : Create PSM Failed ...\n"));
-                    }
-                }
+					#if !defined(INTEL_PUMA7) && !defined(_COSA_BCM_MIPS_) && !defined(_COSA_BCM_ARM_)  && !defined(_COSA_QCA_ARM_)
+							v_secure_system("sysevent set bring-lan up");
+					#endif
+				}
+				else
+				{
+					CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : Create PSM Failed ...\n"));
+				}
 
                 break;
 
@@ -531,20 +477,6 @@ int  cmd_dispatch(int  command)
                         CCSP_Message_Bus_Exit(bus_handle);
                     }
 
-                    if ( pPsmSysRegistry )
-                    {
-                    CcspTraceInfo((" inside case 'c' bEngaged-pPsmSysRegistry\n"));
-#ifdef USE_PLATFORM_SPECIFIC_HAL
-                        if ( pPsmSysRegistry->hPsmCfmIf )
-                        {
-                            pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)NULL;
-                        }
-#endif
-                        pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-                        pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-                    }
-
-
                     bEngaged = FALSE;
 
                     CcspTraceInfo(("PSM has been unloaded.\n"));
@@ -556,8 +488,8 @@ int  cmd_dispatch(int  command)
 
                 break;
     }
-    	   CcspTraceInfo((" cmd_dispatch exit\n"));
-    return  0;
+	CcspTraceInfo((" cmd_dispatch exit\n"));
+	return  0;
 }
 
 
@@ -577,5 +509,3 @@ int  gather_info()
 
     return  0;
 }
-
-
