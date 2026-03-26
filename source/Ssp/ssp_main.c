@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
 int  cmd_dispatch(int  command)
 {
     errno_t rc = -1;
-    int ret = 0;
+    // int ret = 0;
     CcspTraceInfo((" inside cmd_dispatch\n"));
     switch ( command )
     {
