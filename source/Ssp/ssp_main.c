@@ -498,9 +498,9 @@ int  cmd_dispatch(int  command)
 #endif
 
                         pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
-                        ret = PsmDbusInit();
-                        if(ret != 0)
-                           return -1;
+                        //ret = PsmDbusInit();
+                        //if(ret != 0)
+                          // return -1;
 
                         PsmRbusInit();
 
