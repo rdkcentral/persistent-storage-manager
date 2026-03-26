@@ -1468,6 +1468,12 @@ int getHealth()
     return g_psmHealth;
 }
 
+#if 0
+
+/* Temporary: DBus init disabled for RBUS-only validation
+ * Part of CR removal work (AC#2 exploration)
+ */
+
 int PsmDbusInit()
 {
     int         ret ;
@@ -1573,3 +1579,4 @@ int PsmDbusInit()
 
     return 0;
 }
+#endif
