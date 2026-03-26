@@ -78,7 +78,10 @@
 int  cmd_dispatch(int  command);
 int  gather_info ();
 
+#if 0
 int  PsmDbusInit ();
+#endif
+
 int  PsmRbusInit ();
 
 ANSC_STATUS
