@@ -75,6 +75,12 @@
 #define  CCSP_COMPONENT_VERSION_PSM                 1
 #define  CCSP_COMPONENT_AUTHOR_PSM                  "Jian Wu"
 
+#define CCSP_COMMON_COMPONENT_HEALTH_Red     1
+#define CCSP_COMMON_COMPONENT_HEALTH_Yellow  2
+#define CCSP_COMMON_COMPONENT_HEALTH_Green   3
+
+extern int g_psmHealth;
+
 int  cmd_dispatch(int  command);
 int  gather_info ();
 
