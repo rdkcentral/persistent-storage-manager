@@ -503,6 +503,8 @@ int  cmd_dispatch(int  command)
                           // return -1;
 
                         PsmRbusInit();
+    					g_psmHealth = CCSP_COMMON_COMPONENT_HEALTH_Green;
+						CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM Health set to Green\n"));
 
                         bEngaged = TRUE;
 
