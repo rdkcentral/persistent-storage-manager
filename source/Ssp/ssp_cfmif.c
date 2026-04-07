@@ -99,6 +99,10 @@
 #endif
 
 #include <sys/time.h>
+#ifdef CORD_ENABLED
+#include <cord.h>
+#include <errno.h>
+#endif
 
 int Psm_GetCustomPartnersParams( PsmHalParam_t **params, int *cnt1 );
 int Psm_ApplyCustomPartnersParams( PsmHalParam_t **params, int *cnt2 );
@@ -110,6 +114,120 @@ int Psm_ApplyCustomPartnersParams( PsmHalParam_t **params, int *cnt2 );
 #define PARTNER_DEFAULT_APPLY_FILE  	"/nvram/.apply_partner_defaults"
 #define PSM_CUR_CONFIG_FILE_NAME        "/tmp/bbhm_cur_cfg.xml"
 #define PSM_BAK_CONFIG_FILE_NAME        "/nvram/bbhm_bak_cfg.xml"
+
+#ifdef CORD_ENABLED
+#define PSM_CORD_MIGRATED_KEY           "psm.cord.migrated"
+
+/**
+ * cord_import_records - one-time migration of all PSM records from the
+ * in-memory rec_hash[] (populated from bbhm_cur_cfg.xml + defaults)
+ * into the CORD persistent store.
+ *
+ * Called from ssp_CfmReadCurConfig() after the hash is fully merged.
+ * A sentinel key (PSM_CORD_MIGRATED_KEY) is written to CORD on success
+ * so that subsequent boots skip the import entirely.
+ */
+static void cord_import_records(void)
+{
+    cord_rc_t   rc;
+    cord_value_t *pSentinel = NULL;
+    int         i;
+    struct psm_record *rec;
+    unsigned long imported = 0;
+    unsigned long skipped  = 0;
+
+    /* Open CORD — tolerate already-open (e.g. called twice) */
+    rc = cord_open();
+    if (rc != CORD_RC_SUCCESS && rc != CORD_RC_ALREADY_OPEN) {
+        CcspTraceError(("%s: cord_open() failed rc=%d, skipping migration\n",
+                        __FUNCTION__, (int)rc));
+        return;
+    }
+
+    /* Check sentinel — if already migrated, skip */
+    rc = cord_get(PSM_CORD_MIGRATED_KEY, &pSentinel);
+    if (rc == CORD_RC_SUCCESS) {
+        cord_free_values(pSentinel);
+        CcspTraceInfo(("%s: CORD already migrated, skipping\n", __FUNCTION__));
+        return;
+    }
+
+    CcspTraceInfo(("%s: Starting PSM -> CORD migration\n", __FUNCTION__));
+
+    struct timeval cord_t0, cord_t1;
+    gettimeofday(&cord_t0, NULL);
+
+    pthread_mutex_lock(&rec_hash_lock);
+
+    for (i = 0; i < PSM_REC_HASH_SIZE; i++) {
+        for (rec = rec_hash[i]; rec != NULL; rec = rec->next) {
+            if (!rec->name || !rec->type)
+                continue;
+
+            const char *val = rec->value ? rec->value : "";
+            cord_rc_t   set_rc = CORD_RC_SUCCESS;
+
+            if (strcmp(rec->type, "sint") == 0) {
+                char *endptr = NULL;
+                errno = 0;
+                long v = strtol(val, &endptr, 10);
+                if (errno != 0 || endptr == val) {
+                    CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
+                                    __FUNCTION__, rec->name, val));
+                    skipped++;
+                    continue;
+                }
+                set_rc = cord_set_i32(rec->name, (int32_t)v, CORD_FLAG_PERSIST_SYNC);
+
+            } else if (strcmp(rec->type, "uint") == 0) {
+                char *endptr = NULL;
+                errno = 0;
+                unsigned long v = strtoul(val, &endptr, 10);
+                if (errno != 0 || endptr == val) {
+                    CcspTraceError(("%s: uint parse fail for '%s'='%s'\n",
+                                    __FUNCTION__, rec->name, val));
+                    skipped++;
+                    continue;
+                }
+                set_rc = cord_set_u32(rec->name, (uint32_t)v, CORD_FLAG_PERSIST_SYNC);
+
+            } else if (strcmp(rec->type, "bool") == 0) {
+                bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
+                set_rc = cord_set_bool(rec->name, bval, CORD_FLAG_PERSIST_SYNC);
+
+            } else {
+                /* astr, bstr, hcxt, enum, unknown — store as string */
+                set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_SYNC);
+            }
+
+            if (set_rc != CORD_RC_SUCCESS) {
+                CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
+                                __FUNCTION__, (int)set_rc, rec->name));
+                skipped++;
+            } else {
+                imported++;
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&rec_hash_lock);
+
+    gettimeofday(&cord_t1, NULL);
+    long cord_ms = (cord_t1.tv_sec  - cord_t0.tv_sec)  * 1000L
+                 + (cord_t1.tv_usec - cord_t0.tv_usec) / 1000L;
+
+    CcspTraceInfo(("%s: Migration complete — imported=%lu skipped=%lu time=%ldms\n",
+                    __FUNCTION__, imported, skipped, cord_ms));
+
+    /* Write sentinel so we never migrate again */
+    rc = cord_set_string(PSM_CORD_MIGRATED_KEY, "1", CORD_FLAG_PERSIST_SYNC);
+    if (rc != CORD_RC_SUCCESS) {
+        CcspTraceError(("%s: Failed to set migration sentinel rc=%d\n",
+                        __FUNCTION__, (int)rc));
+    }
+}
+#endif /* CORD_ENABLED */
+
 #define PARTNER_DEFAULT_MIGRATE_PSM  	"/tmp/.apply_partner_defaults_psm"
 #define PARTNER_DEFAULT_MIGRATE_FOR_NEW_PSM_MEMBER  	"/tmp/.apply_partner_defaults_new_psm_member"
 
@@ -1511,12 +1629,22 @@ ssp_CfmReadCurConfig
     snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->CurFileName);
 again:
     /* load config file to Hash for fast merging and import */
-    if (load_records(path) != 0) {
-        CcspTraceError(("%s: Fail to load config file: %s\n", __FUNCTION__, path));
-        if (!usg_bak) {
-            snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->BakFileName);
-            usg_bak = 1;
-            goto again;
+    {
+        struct timeval xml_t0, xml_t1;
+        gettimeofday(&xml_t0, NULL);
+        int load_ret = load_records(path);
+        gettimeofday(&xml_t1, NULL);
+        long xml_ms = (xml_t1.tv_sec  - xml_t0.tv_sec)  * 1000L
+                    + (xml_t1.tv_usec - xml_t0.tv_usec) / 1000L;
+        CcspTraceInfo(("%s: XML load '%s' %s time=%ldms\n",
+                        __FUNCTION__, path, (load_ret == 0 ? "OK" : "FAILED"), xml_ms));
+        if (load_ret != 0) {
+            CcspTraceError(("%s: Fail to load config file: %s\n", __FUNCTION__, path));
+            if (!usg_bak) {
+                snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->BakFileName);
+                usg_bak = 1;
+                goto again;
+            }
         }
     }
 
@@ -1538,6 +1666,10 @@ again:
      {
          CcspTraceInfo(("%s: merge_missing_Partner_params failed\n", __FUNCTION__));
      }
+
+#ifdef CORD_ENABLED
+    cord_import_records();
+#endif
 
     /* flush merged records to buffer */
     if (flush_records((char **)ppCfgBuffer,(size_t *) pulCfgSize) != 0) {

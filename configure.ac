@@ -85,6 +85,20 @@ AC_ARG_ENABLE([mountutils],
 AM_CONDITIONAL([IS_LIBRDKCONFIG_ENABLED], [test x$IS_LIBRDKCONFIG_ENABLED = xtrue])
 AC_SUBST(LIBRDKCONFIG_FLAG)
 
+CORD_ENABLED=false
+AC_ARG_ENABLE([cord],
+        AS_HELP_STRING([--enable-cord],[enable CORD persistent storage support (default is no)]),
+        [
+          case "${enableval}" in
+           yes) CORD_ENABLED=true
+                CFLAGS="$CFLAGS -DCORD_ENABLED" ;;
+           no)  CORD_ENABLED=false ;;
+           *) AC_MSG_ERROR([bad value ${enableval} for --enable-cord]) ;;
+           esac
+           ],
+        [echo "CORD support is disabled."])
+AM_CONDITIONAL([WITH_CORD_SUPPORT], [test x$CORD_ENABLED = xtrue])
+
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
 
