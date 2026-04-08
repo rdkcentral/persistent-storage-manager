@@ -34,7 +34,8 @@ PsmSsp_gtest_bin_CPPFLAGS = -I$(PKG_CONFIG_SYSROOT_DIR)$(includedir)/gtest \
                             -I${top_srcdir}/source/include \
                             -I${top_srcdir}/source/PsmSysRegistry \
                             -I${top_srcdir}/source/PsmFileLoader \
-                            -DPSM_DB_PATH=\"/tmp/psm_test.db\"
+                            -DPSM_DB_PATH=\"/tmp/psm_test.db\" \
+                            -DPSM_XML_CONFIG_PATH=\"/tmp/psm_test.xml\"
 
 PsmSsp_gtest_bin_SOURCES = gtest_main.cpp \
                            $(top_srcdir)/source/Ssp/psm_hal_apis.c \

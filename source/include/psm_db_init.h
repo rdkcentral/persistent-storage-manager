@@ -32,6 +32,16 @@
 #endif
 
 /**
+ * @brief Path to the merged PSM XML config written by ssp_CfmReadCurConfig()
+ *        at PSM daemon startup.  Used as the one-time migration source when
+ *        the SQLite database is empty (first boot after upgrade).
+ *        Can be overridden at build time with -DPSM_XML_CONFIG_PATH=\"...\"
+ */
+#ifndef PSM_XML_CONFIG_PATH
+#define PSM_XML_CONFIG_PATH  "/tmp/bbhm_cur_cfg.xml"
+#endif
+
+/**
  * @brief Initialize the PSM SQLite database.
  *
  * Must be called during PSM daemon startup, before sd_notify(READY=1) and
