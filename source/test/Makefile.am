@@ -33,11 +33,13 @@ PsmSsp_gtest_bin_CPPFLAGS = -I$(PKG_CONFIG_SYSROOT_DIR)$(includedir)/gtest \
                             -I${top_srcdir}/source \
                             -I${top_srcdir}/source/include \
                             -I${top_srcdir}/source/PsmSysRegistry \
-                            -I${top_srcdir}/source/PsmFileLoader
+                            -I${top_srcdir}/source/PsmFileLoader \
+                            -DPSM_DB_PATH=\"/tmp/psm_test.db\"
 
 PsmSsp_gtest_bin_SOURCES = gtest_main.cpp \
                            $(top_srcdir)/source/Ssp/psm_hal_apis.c \
                            $(top_srcdir)/source/Ssp/ssp_cfmif.c \
+                           $(top_srcdir)/source/Ssp/psm_db_init.c \
                            $(top_srcdir)/source/PsmSysRegistry/psm_sysro_base.c \
                            $(top_srcdir)/source/PsmSysRegistry/psm_sysro_interface.c \
                            $(top_srcdir)/source/PsmSysRegistry/psm_sysro_storage.c \
@@ -66,9 +68,10 @@ PsmSsp_gtest_bin_SOURCES = gtest_main.cpp \
                            psm_sysro_states_test.cpp \
                            psm_sysro_storage_test.cpp \
                            psm_sysro_cfmif_test.cpp \
-                           psm_mock.cpp
+                           psm_mock.cpp \
+                           psm_db_test.cpp
 
-PsmSsp_gtest_bin_LDFLAGS = -lgtest -lgmock -lgcov -lcjson -lpthread
+PsmSsp_gtest_bin_LDFLAGS = -lgtest -lgmock -lgcov -lcjson -lpthread -lsqlite3
 
 PsmSsp_gtest_bin_LDADD = $(HOME)/usr/local/lib/libmock_ccsp_common.la \
                              $(HOME)/usr/local/lib/libmock_safec_lib.la \

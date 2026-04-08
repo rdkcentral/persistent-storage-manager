@@ -53,6 +53,7 @@
 #include "ssp_global.h"
 #include "safec_lib_common.h"
 #include "secure_wrapper.h"
+#include "psm_db_init.h"
 #ifdef ENABLE_SD_NOTIFY
 #include <systemd/sd-daemon.h>
 #endif
@@ -498,6 +499,13 @@ int  cmd_dispatch(int  command)
 #endif
 
                         pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
+
+                        if (psm_db_init() != 0)
+                        {
+                            CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : PSM database initialization failed\n"));
+                            return -1;
+                        }
+
                         ret = PsmDbusInit();
                         if(ret != 0)
                            return -1;

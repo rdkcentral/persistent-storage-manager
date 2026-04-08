@@ -36,6 +36,7 @@ PsmSsp_SOURCES = \
     Ssp/ssp_dbus.c \
     Ssp/ssp_cfmif.c \
     Ssp/psm_hal_apis.c \
+    Ssp/psm_db_init.c \
     PsmFileLoader/psm_flo_interface.c \
     PsmFileLoader/psm_flo_control.c \
     PsmFileLoader/psm_flo_parse.c \
@@ -51,7 +52,7 @@ PsmSsp_SOURCES = \
     PsmSysRegistry/psm_sysro_operation.c \
     PsmSysRegistry/psm_sysro_control.c
 
-PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread
+PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread -lsqlite3
 
 if IS_LIBRDKCONFIG_ENABLED
 PsmSsp_CFLAGS += $(LIBRDKCONFIG_FLAG)
