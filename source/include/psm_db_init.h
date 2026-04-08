@@ -25,8 +25,11 @@
  *
  * The common library (ccsp_base_api.c) opens the same path when performing
  * direct SQLite Get/Set operations.  Both sides must agree on this constant.
+ * Can be overridden at build time with -DPSM_DB_PATH=\"...\"
  */
+#ifndef PSM_DB_PATH
 #define PSM_DB_PATH   "/nvram/psm.db"
+#endif
 
 /**
  * @brief Initialize the PSM SQLite database.
