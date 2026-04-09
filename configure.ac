@@ -95,6 +95,19 @@ AC_C_INLINE
 # Checks for library functions.
 AC_FUNC_MALLOC
 
+# libsqlite3 >= 3.7.0 — required by PsmSsp (psm_db_init.c) and psmcli.
+# 3.7.0 is the minimum that supports WAL journal mode and SQLITE_OPEN_FULLMUTEX.
+# Try pkg-config first; fall back to AC_CHECK_LIB for Yocto sysroots that ship
+# libsqlite3 without a .pc file.
+PKG_CHECK_MODULES([SQLITE3], [sqlite3 >= 3.7.0],
+    [],
+    [AC_CHECK_LIB([sqlite3], [sqlite3_open_v2],
+        [SQLITE3_LIBS="-lsqlite3"
+         SQLITE3_CFLAGS=""],
+        [AC_MSG_ERROR([libsqlite3 not found. Add sqlite3 to DEPENDS in the Yocto recipe.])])])
+AC_SUBST(SQLITE3_CFLAGS)
+AC_SUBST(SQLITE3_LIBS)
+
 AC_CONFIG_FILES(
 	source/Makefile
 	Makefile

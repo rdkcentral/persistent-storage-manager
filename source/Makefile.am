@@ -26,7 +26,8 @@ bin_PROGRAMS = PsmSsp psmcli
 
 PsmSsp_CPPFLAGS = \
     -I$(top_srcdir)/source/DslhManagementServer \
-    -I$(top_srcdir)/source/include
+    -I$(top_srcdir)/source/include \
+    $(SQLITE3_CFLAGS)
 
 PsmSsp_CFLAGS = $(SYSTEMD_CFLAGS)
 
@@ -52,7 +53,7 @@ PsmSsp_SOURCES = \
     PsmSysRegistry/psm_sysro_operation.c \
     PsmSysRegistry/psm_sysro_control.c
 
-PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread -lsqlite3
+PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread $(SQLITE3_LIBS)
 
 if IS_LIBRDKCONFIG_ENABLED
 PsmSsp_CFLAGS += $(LIBRDKCONFIG_FLAG)
@@ -61,7 +62,7 @@ endif
 
 # psmcli — standalone SQLite PSM query/set tool (Phase 2, no daemon dependency)
 psmcli_SOURCES   = Ssp/psmcli.c
-psmcli_CPPFLAGS  = -I$(top_srcdir)/source/include
-psmcli_LDFLAGS   = -lsqlite3
+psmcli_CPPFLAGS  = -I$(top_srcdir)/source/include $(SQLITE3_CFLAGS)
+psmcli_LDFLAGS   = $(SQLITE3_LIBS)
 
 endif
