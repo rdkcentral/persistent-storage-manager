@@ -389,28 +389,17 @@ int main(int argc, char* argv[])
         read_capability(&appcaps);
         CcspTraceInfo(("CAP_DAC_OVERRIDE removed\n"));
     }
-    if ( bRunAsDaemon ) {
-		sem_post (sem);
-		sem_close(sem);
-		while (1)
-			sleep(30);
-    }
-    else {
-        while ( cmdChar != 'q' )
-        {
-            cmdChar = getchar();
-            if (cmdChar < 0) 
-            {
-                sleep(30);
-            }
-            else 
-            {
-                ret = cmd_dispatch(cmdChar);
-                if(ret != 0)
-                    return 1;
-            }
-        }
-    }
+
+    /*
+     * Phase 2: PSM runs as a oneshot systemd service.
+     * After the database is initialised and the XML config has been migrated
+     * to SQLite, there is nothing left for the daemon to do.  All runtime
+     * Get/Set/Del/Enum operations are now served directly from SQLite by the
+     * common library in each component process.
+     * Exit cleanly so systemd marks the service as "inactive (dead)" and
+     * releases the ~10–18 MB of process memory.
+     */
+    CcspTraceInfo(("RDKB_SYSTEM_BOOT_UP_LOG : PSM initialisation complete, exiting (oneshot)\n"));
 
     if ( bEngaged )
     {

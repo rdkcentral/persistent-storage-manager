@@ -22,7 +22,7 @@ else
 
 ACLOCAL_AMFLAGS = -I m4
 
-bin_PROGRAMS = PsmSsp
+bin_PROGRAMS = PsmSsp psmcli
 
 PsmSsp_CPPFLAGS = \
     -I$(top_srcdir)/source/DslhManagementServer \
@@ -58,4 +58,10 @@ if IS_LIBRDKCONFIG_ENABLED
 PsmSsp_CFLAGS += $(LIBRDKCONFIG_FLAG)
 PsmSsp_LDFLAGS += -lrdkconfig
 endif
+
+# psmcli — standalone SQLite PSM query/set tool (Phase 2, no daemon dependency)
+psmcli_SOURCES   = Ssp/psmcli.c
+psmcli_CPPFLAGS  = -I$(top_srcdir)/source/include
+psmcli_LDFLAGS   = -lsqlite3
+
 endif

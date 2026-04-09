@@ -34,9 +34,11 @@
 static int psm_db_apply_pragmas(sqlite3 *db)
 {
     const char *pragmas =
+        /* page_size must be set before journal_mode so it takes effect
+         * when creating a brand-new database file. */
+        "PRAGMA page_size=4096;"
         "PRAGMA journal_mode=WAL;"
-        "PRAGMA synchronous=NORMAL;"
-        "PRAGMA page_size=4096;";
+        "PRAGMA synchronous=NORMAL;";
 
     char *errmsg = NULL;
     int rc = sqlite3_exec(db, pragmas, NULL, NULL, &errmsg);
@@ -221,23 +223,25 @@ static int psm_xml_parse_record(char  *line,
 /*
  * Populate the psm_records SQLite table from the PSM XML config file.
  *
- * This is a one-time migration triggered when the table is empty (i.e. the
- * first boot after the new PSM binary is deployed).  On subsequent boots the
- * table is already populated from prior Set operations and the function
- * returns immediately without touching the DB.
+ * Runs on every boot using INSERT OR IGNORE so that:
+ *   - First boot: all records from the merged XML are inserted into the DB.
+ *   - Subsequent boots: records already in the DB (including those modified
+ *     by Set operations) are preserved; only new keys missing from the DB are
+ *     added.  This naturally handles firmware upgrades that introduce new
+ *     PSM default parameters — the new params appear in the merged XML
+ *     produced by ssp_CfmReadCurConfig() and are inserted on the next boot.
  *
  * The XML at xml_path is the merged config written by ssp_CfmReadCurConfig()
  * during PSM Engage(), so it is guaranteed to exist before psm_db_init() runs.
  *
- * Returns 0 on success or if migration is not required, -1 on error.
- * Migration failure is non-fatal for callers — existing callers will simply
+ * Returns 0 on success or if the XML file is absent, -1 on hard error.
+ * Failure is non-fatal for callers — existing callers will simply
  * receive CCSP_CR_ERR_INVALID_PARAM until a Set populates the row.
  */
 static int psm_db_migrate_from_xml(sqlite3 *db, const char *xml_path)
 {
     sqlite3_stmt *stmt  = NULL;
     int           rc;
-    int           count = 0;
     FILE         *fp    = NULL;
     char         *errmsg= NULL;
     char          line[8192];
@@ -245,41 +249,19 @@ static int psm_db_migrate_from_xml(sqlite3 *db, const char *xml_path)
     int           ret   = 0;
 
     /* ------------------------------------------------------------------
-     * 1. Check whether migration is needed
-     * ------------------------------------------------------------------ */
-    rc = sqlite3_prepare_v2(db,
-             "SELECT COUNT(*) FROM psm_records;",
-             -1, &stmt, NULL);
-    if (rc != SQLITE_OK)
-    {
-        CcspTraceError(("psm_db_init: migration count query failed: %s\n",
-                        sqlite3_errmsg(db)));
-        return -1;
-    }
-    if (sqlite3_step(stmt) == SQLITE_ROW)
-        count = sqlite3_column_int(stmt, 0);
-    sqlite3_finalize(stmt);
-    stmt = NULL;
-
-    if (count > 0)
-    {
-        CcspTraceInfo(("psm_db_init: existing DB has %d records, skipping XML migration\n",
-                       count));
-        return 0;
-    }
-
-    /* ------------------------------------------------------------------
-     * 2. Open the XML file
+     * Open the XML file — absent file is not an error (first-ever boot
+     * before any XML config exists, or after factory reset).
      * ------------------------------------------------------------------ */
     fp = fopen(xml_path, "r");
     if (fp == NULL)
     {
-        CcspTraceError(("psm_db_init: XML migration: cannot open %s\n", xml_path));
-        return -1;
+        CcspTraceInfo(("psm_db_init: XML config %s not present, skipping migration\n",
+                       xml_path));
+        return 0;
     }
 
     /* ------------------------------------------------------------------
-     * 3. Bulk-insert inside a single transaction
+     * Bulk-insert inside a single transaction
      * ------------------------------------------------------------------ */
     rc = sqlite3_exec(db, "BEGIN;", NULL, NULL, &errmsg);
     if (rc != SQLITE_OK)
@@ -410,9 +392,9 @@ int psm_db_init(void)
     }
 
     /* ------------------------------------------------------------------
-     * Migrate existing XML configuration into SQLite on first boot.
-     * psm_db_migrate_from_xml() is a no-op if the table already contains
-     * rows (i.e. the DB was pre-populated by a previous run).
+     * Sync XML defaults into SQLite using INSERT OR IGNORE.
+     * Existing DB records are never overwritten; new keys from the XML
+     * (e.g. added by a firmware upgrade) are inserted.
      * ------------------------------------------------------------------ */
     if (psm_db_migrate_from_xml(db, PSM_XML_CONFIG_PATH) != 0)
     {
