@@ -59,9 +59,7 @@ static int psm_db_create_schema(sqlite3 *db)
         "  name  TEXT    NOT NULL PRIMARY KEY,"
         "  type  INTEGER NOT NULL,"
         "  value TEXT    NOT NULL"
-        ");"
-        "CREATE INDEX IF NOT EXISTS idx_psm_records_name"
-        "  ON psm_records (name);";
+        ");";
 
     char *errmsg = NULL;
     int rc = sqlite3_exec(db, ddl, NULL, NULL, &errmsg);
