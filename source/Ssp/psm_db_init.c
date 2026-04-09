@@ -49,6 +49,7 @@ static int psm_db_apply_pragmas(sqlite3 *db)
         sqlite3_free(errmsg);
         return -1;
     }
+    CcspTraceInfo(("psm_db_init: PRAGMA setup succeeded (WAL mode, NORMAL sync, 4096 page size)\n"));
     return 0;
 }
 
@@ -70,6 +71,7 @@ static int psm_db_create_schema(sqlite3 *db)
         sqlite3_free(errmsg);
         return -1;
     }
+    CcspTraceInfo(("psm_db_init: psm_records table schema ready\n"));
     return 0;
 }
 
@@ -90,6 +92,7 @@ static int psm_db_integrity_check(sqlite3 *db)
         const unsigned char *result = sqlite3_column_text(stmt, 0);
         if (result && strcmp((const char *)result, "ok") == 0)
         {
+            CcspTraceInfo(("psm_db_init: integrity_check passed\n"));
             ok = 0;
         }
         else
@@ -339,6 +342,8 @@ int psm_db_init(void)
     int rc;
     int attempt;
 
+    CcspTraceInfo(("psm_db_init: opening SQLite PSM database at %s (new SQLite flow)\n", PSM_DB_PATH));
+
     for (attempt = 0; attempt < 2; attempt++)
     {
         rc = sqlite3_open_v2(PSM_DB_PATH, &db,
@@ -356,6 +361,8 @@ int psm_db_init(void)
             }
             return -1;
         }
+
+        CcspTraceInfo(("psm_db_init: database file opened (attempt %d)\n", attempt + 1));
 
         if (psm_db_apply_pragmas(db) != 0)
         {
