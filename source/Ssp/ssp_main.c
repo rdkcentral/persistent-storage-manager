@@ -268,7 +268,6 @@ static int is_core_dump_opened(void)
 
 int main(int argc, char* argv[])
 {
-    int                             cmdChar            = 0;
     BOOL                            bRunAsDaemon       = TRUE;
     int                             idx                = 0;
     FILE                           *fd                 = NULL;
