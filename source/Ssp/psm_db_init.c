@@ -417,5 +417,10 @@ int psm_db_init(void)
     }
 
     CcspTraceInfo(("psm_db_init: database ready at %s\n", PSM_DB_PATH));
+
+    /* Touch the ready flag so callers of CcspBaseIf_getHealth() can confirm
+     * PSM is ready without needing the PSM process to still be alive. */
+    creat("/tmp/psm_sqlite_ready", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    CcspTraceInfo(("psm_db_init: touched /tmp/psm_sqlite_ready\n"));
     return 0;
 }

@@ -446,6 +446,8 @@ static rbusError_t psmGet(rbusHandle_t handle, char const* methodName, rbusObjec
     return getParameterValues_rbus(inParams, outParams);
 }
 
+
+
 static rbusError_t psmSet(rbusHandle_t handle, char const* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle)
 {
     (void)handle;

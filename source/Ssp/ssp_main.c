@@ -395,8 +395,10 @@ int main(int argc, char* argv[])
      * to SQLite, there is nothing left for the daemon to do.  All runtime
      * Get/Set/Del/Enum operations are now served directly from SQLite by the
      * common library in each component process.
-     * Exit cleanly so systemd marks the service as "inactive (dead)" and
-     * releases the ~10–18 MB of process memory.
+     *
+     * The common library's CcspBaseIf_getHealth_rbus() checks for the flag
+     * file /tmp/psm_sqlite_ready (written by psm_db_init()) and returns green
+     * directly without needing PSM to be alive.  No sleep required.
      */
     CcspTraceInfo(("RDKB_SYSTEM_BOOT_UP_LOG : PSM initialisation complete, exiting (oneshot)\n"));
 
@@ -498,6 +500,9 @@ int  cmd_dispatch(int  command)
                         if(ret != 0)
                            return -1;
 
+                        /* Keep PSM's RBus handle alive so dependents (e.g. PAM) can call
+                         * GetHealth() and confirm PSM is ready.  PSM will still exit as a
+                         * oneshot after the hold period — see the sleep() below. */
                         PsmRbusInit();
 
                         bEngaged = TRUE;
