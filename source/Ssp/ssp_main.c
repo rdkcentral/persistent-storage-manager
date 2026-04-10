@@ -408,7 +408,14 @@ int main(int argc, char* argv[])
      * was never triggered before because PSM previously ran indefinitely.
      * Since the OS reclaims all resources on process exit, skip teardown and
      * exit cleanly.
+     *
+     * daemonize() forks: the parent (tracked by systemd) blocks in sem_wait()
+     * waiting for the child to signal it is ready.  Post the semaphore so the
+     * parent unblocks and exits too, allowing systemd to mark the service
+     * active (exited).
      */
+    if (sem != SEM_FAILED && sem != NULL)
+        sem_post(sem);
     _exit(0);
 }
 
