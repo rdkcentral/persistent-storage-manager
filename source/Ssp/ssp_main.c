@@ -402,18 +402,14 @@ int main(int argc, char* argv[])
      */
     CcspTraceInfo(("RDKB_SYSTEM_BOOT_UP_LOG : PSM initialisation complete, exiting (oneshot)\n"));
 
-    if ( bEngaged )
-    {
-        if ( pPsmSysRegistry )
-        {
-            pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-            pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-        }
-
-        bEngaged = FALSE;
-    }
-
-    return 0;
+    /*
+     * PSM runs as a oneshot service and exits here.  The legacy C++ object
+     * teardown (pPsmSysRegistry->Cancel/Remove) contains a double-free that
+     * was never triggered before because PSM previously ran indefinitely.
+     * Since the OS reclaims all resources on process exit, skip teardown and
+     * exit cleanly.
+     */
+    _exit(0);
 }
 
 
