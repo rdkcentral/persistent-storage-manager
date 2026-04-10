@@ -117,7 +117,23 @@ int Psm_ApplyCustomPartnersParams( PsmHalParam_t **params, int *cnt2 );
 
 #ifdef CORD_ENABLED
 #define PSM_CORD_MIGRATED_KEY           "psm.cord.migrated"
+#endif /* CORD_ENABLED */
 
+#define PARTNER_DEFAULT_MIGRATE_PSM  	"/tmp/.apply_partner_defaults_psm"
+#define PARTNER_DEFAULT_MIGRATE_FOR_NEW_PSM_MEMBER  	"/tmp/.apply_partner_defaults_new_psm_member"
+
+struct psm_record {
+    struct psm_record   *next;
+    char                *name;
+    char                *type;
+    char                *ctype;
+    char                *value;
+};
+
+static struct psm_record *rec_hash[PSM_REC_HASH_SIZE] = {0};
+static pthread_mutex_t  rec_hash_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#ifdef CORD_ENABLED
 /**
  * cord_import_records - one-time migration of all PSM records from the
  * in-memory rec_hash[] (populated from bbhm_cur_cfg.xml + defaults)
@@ -227,20 +243,6 @@ static void cord_import_records(void)
     }
 }
 #endif /* CORD_ENABLED */
-
-#define PARTNER_DEFAULT_MIGRATE_PSM  	"/tmp/.apply_partner_defaults_psm"
-#define PARTNER_DEFAULT_MIGRATE_FOR_NEW_PSM_MEMBER  	"/tmp/.apply_partner_defaults_new_psm_member"
-
-struct psm_record {
-    struct psm_record   *next;
-    char                *name;
-    char                *type;
-    char                *ctype;
-    char                *value;
-};
-
-static struct psm_record *rec_hash[PSM_REC_HASH_SIZE] = {0};
-static pthread_mutex_t  rec_hash_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static char *remove_quotes (char *buf)
 {
