@@ -1,6 +1,6 @@
-# CcspPsm
+﻿# CcspPsm
 
-CcspPsm component serves as the Storage Manager in the RDK-B middleware stack. It provides centralized persistent configuration storage and retrieval services for all RDK-B components, ensuring data persistence across device reboots and factory resets. The component acts as a configuration repository that maintains system settings, user preferences, and runtime parameters in a hierarchical namespace structure. CcspPsm offers persistent storage APIs that abstract underlying storage mechanisms from other middleware components. It provides configuration validation, backup/restore capabilities, and transactional operations to ensure data integrity. The component supports both XML-based configuration files and runtime parameter management through well-defined interfaces.
+CcspPsm component serves as the Storage Manager in the RDK-B middleware stack. It provides centralized persistent configuration storage and retrieval services for all RDK-B components, ensuring data persistence across device reboots and power cycles. The component acts as a configuration repository that maintains system settings, user preferences, and runtime parameters in a hierarchical namespace structure. CcspPsm offers persistent storage APIs that abstract underlying storage mechanisms from other middleware components. It provides configuration validation, backup/restore capabilities, and transactional operations to ensure data integrity. Factory reset support restores default configurations and may preserve certain critical system parameters where applicable. The component supports both XML-based configuration files and runtime parameter management through well-defined interfaces.
 
 At the module level, CcspPsm provides parameter get/set operations, configuration file loading/parsing, system registry management, and HAL integration for platform-specific storage requirements. It integrates with RBus messaging systems and other IPC methods to serve configuration requests from other RDK-B components and external management systems.
 
@@ -26,9 +26,9 @@ graph LR
     %% External connections
     RemoteMgmt -->|TR-069/WebPA/TR-369| ProtocolAgents
     LocalUI -->|HTTP/HTTPS| ProtocolAgents
-    
+
     ProtocolAgents -->|IPC| rdkbComponent
-    
+
     rdkbComponent -->|APIs| CcspPsm
     CcspPsm -->|APIs| rdkbComponent
     CcspPsm -->|APIs| SyscfgDB
@@ -44,12 +44,12 @@ graph LR
     class SyscfgDB system;
 ```
 
-**Key Features & Responsibilities**: 
+**Key Features & Responsibilities**:
 
 - **Persistent Configuration Storage**: Manages hierarchical parameter storage with support for different data types (string, integer, boolean, datetime, binary) and ensures data persistence across reboots and power cycles
 - **Configuration File Management**: Handles XML-based configuration file parsing, loading, validation, and storage with support for default configurations, current settings, and backup files
 - **Transaction Support**: Provides atomic operations for configuration updates with rollback capabilities to ensure data consistency during complex configuration changes
-- **Factory Reset Support**: Implements factory reset functionality with the ability to restore default configurations while preserving critical system parameters
+- **Factory Reset Support**: Implements factory reset functionality that restores default configurations by removing the current and backup configuration files, triggering a reload from factory defaults on next startup
 - **IPC Support**: Offers RBus interfaces for parameter access, enabling integration with CCSP components and modern RBus-based services
 - **HAL Integration**: Provides platform-specific storage abstraction through HAL APIs, allowing adaptation to different hardware platforms and storage mechanisms
 - **Configuration Validation**: Validates parameter values, types, and constraints before persistence to ensure system stability and prevent invalid configurations
@@ -73,7 +73,7 @@ flowchart TD
             MainController[Main Controller]
             CFMInterface[CFM Interface]
         end
-        
+
         subgraph "PsmSysRegistry"
             RegInterface[Registry Interface]
             RegControl[Registry Control]
@@ -81,7 +81,7 @@ flowchart TD
             RegBase[Registry Base]
             RegStates[Registry States]
         end
-        
+
         subgraph "PsmFileLoader"
             FileInterface[File Loader Interface]
             FileControl[File Loader Control]
@@ -93,28 +93,27 @@ flowchart TD
 
     MainController --> RegInterface
     MainController --> FileInterface
-    
+
     CFMInterface --> MainController
-    
+
     RegInterface --> RegControl
     RegControl --> RegStorage
     RegControl --> RegStates
     RegStorage --> RegBase
-    
+
     FileInterface --> FileControl
     FileControl --> XMLParser
     FileControl --> FileOperations
     FileControl --> LoaderStates
-    
+
     RegStorage --> FileInterface
     FileOperations --> RegStorage
     RegStates --> FileOperations
 ```
 
-
 ### Prerequisites and Dependencies
 
-**RDK-B Platform and Integration Requirements:** 
+**RDK-B Platform and Integration Requirements:**
 
 - **RDK-B Components**: CcspCommonLibrary, RBus framework, systemd for service management, syscfg utility for platform configuration
 - **HAL Dependencies**: Platform Storage HAL, Syscfg HAL for platform-specific configuration access
@@ -125,13 +124,13 @@ flowchart TD
 
 <br>
 
-**Threading Model:** 
+**Threading Model:**
 
 CcspPsm implements a hybrid threading model combining single-threaded main processing with worker threads for I/O operations and periodic maintenance tasks. The main thread handles all IPC message processing, parameter validation, and configuration updates to ensure thread safety and avoid race conditions in critical configuration operations.
 
 - **Threading Architecture**: Single-threaded main event loop with dedicated worker threads for file I/O and backup operations
 - **Main Thread**: Handles RBus message processing, parameter validation, configuration updates, and maintains the in-memory parameter cache
-- **Main worker Threads**: 
+- **Main worker Threads**:
   - **File I/O Thread**: Manages XML configuration file reading, writing, and compression operations
   - **Backup Thread**: Handles periodic configuration backups and cleanup of temporary files
   - **Flush Thread**: Performs periodic cache flushes to persistent storage at configurable intervals
@@ -235,7 +234,7 @@ sequenceDiagram
         PSM->>Cache: Update Cache Entry
     end
     PSM-->>Client: Parameter Value Response
-    
+
     Client->>PSM: Parameter Set Request (RBus)
     PSM->>PSM: Validate Parameter Value
     PSM->>Cache: Update Cache Entry
@@ -249,12 +248,11 @@ sequenceDiagram
 
 The CcspPsm component is structured into three primary modules that handle different aspects of persistent storage management. The PsmSysRegistry module manages the runtime parameter registry and in-memory caching, providing high-performance parameter access and validation. The PsmFileLoader module handles XML configuration file operations including parsing, validation, and file management for default, current, and backup configurations. The SSP (Sub-System Process) module provides the interface layer for RBus communications, HAL integration, and system service management.
 
-| Module/Class | Description | Key Files |
-|-------------|------------|-----------|
+| Module/Class   | Description                                                                                                                                             | Key Files                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | PsmSysRegistry | Manages runtime parameter registry, in-memory cache operations, parameter validation, and provides atomic transaction support for configuration updates | `psm_sysro_interface.c`, `psm_sysro_control.c`, `psm_sysro_storage.c`, `psm_sysro_base.c` |
-| PsmFileLoader | Handles XML configuration file parsing, validation, loading of default configurations, and manages backup/restore operations with compression support | `psm_flo_interface.c`, `psm_flo_parse.c`, `psm_flo_operation.c`, `psm_flo_control.c` |
-| SSP Layer | Provides RBus interface implementations, HAL integration layer, main process control, and system service management including signal handling | `ssp_main.c`, `ssp_rbus.c`, `ssp_cfmif.c`, `psm_hal_apis.c` |
-
+| PsmFileLoader  | Handles XML configuration file parsing, validation, loading of default configurations, and manages backup/restore operations with compression support   | `psm_flo_interface.c`, `psm_flo_parse.c`, `psm_flo_operation.c`, `psm_flo_control.c`      |
+| SSP Layer      | Provides RBus interface implementations, HAL integration layer, main process control, and system service management including signal handling           | `ssp_main.c`, `ssp_rbus.c`, `ssp_cfmif.c`, `psm_hal_apis.c`                               |
 
 ## Component Interactions
 
@@ -262,17 +260,17 @@ CcspPsm serves as the central configuration repository for the RDK-B middleware 
 
 ### Interaction Matrix
 
-| Target Component/Layer | Interaction Purpose | Key APIs/Endpoints |
-|------------------------|--------------------|--------------------|
-| **RDK-B Middleware Components** | | |
-| CcspPandM | Configuration parameter management, system status reporting, factory reset coordination | `GetPSMRecordValue()`, `SetPSMRecordValue()` |
-| CcspTr069Pa | TR-069 parameter persistence, ACS configuration storage, device provisioning data | `getParameterValues()`, `setParameterValues()`, `addObject()` |
-| OneWifi | WiFi configuration persistence, radio settings, access point parameters | `Device.WiFi.` namespace parameters, WiFi credential storage |
-| CcspDmCli | Command-line data model access, diagnostic parameter retrieval, testing interface | RBus method calls for parameter tree navigation |
-| **System & HAL Layers** | | |
-| Syscfg HAL | Platform-specific configuration parameter access, hardware-dependent settings | `syscfg_get()`, `syscfg_set()`, `syscfg_commit()` |
-| File System | Configuration file storage, backup operations, temporary file management | `/nvram/psm_cfg.xml`, `/tmp/psm_backup.xml` |
-| Platform Services | System integration, service lifecycle management, resource monitoring | Systemd unit file control, process monitoring |
+| Target Component/Layer          | Interaction Purpose                                                                     | Key APIs/Endpoints                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **RDK-B Middleware Components** |                                                                                         |                                                                                    |
+| CcspPandM                       | Configuration parameter management, system status reporting, factory reset coordination | `GetPSMRecordValue()`, `SetPSMRecordValue()`                                       |
+| CcspTr069Pa                     | TR-069 parameter persistence, ACS configuration storage, device provisioning data       | `getParameterValues()`, `setParameterValues()`, `addObject()`                      |
+| OneWifi                         | WiFi configuration persistence, radio settings, access point parameters                 | `Device.WiFi.` namespace parameters, WiFi credential storage                       |
+| CcspDmCli                       | Command-line data model access, diagnostic parameter retrieval, testing interface       | RBus method calls for parameter tree navigation                                    |
+| **System & HAL Layers**         |                                                                                         |                                                                                    |
+| Syscfg HAL                      | Platform-specific configuration parameter access, hardware-dependent settings           | `syscfg_get()`, `syscfg_unset()`, `syscfg_commit()`                                |
+| File System                     | Configuration file storage, backup operations, temporary file management                | `/psm/config/psm_*_cfg.xml.gz`, `/tmp/bbhm_cur_cfg.xml`, `/nvram/bbhm_bak_cfg.xml` |
+| Platform Services               | System integration, service lifecycle management, resource monitoring                   | Systemd unit file control, process monitoring                                      |
 
 ### IPC Flow Patterns
 
@@ -298,7 +296,7 @@ sequenceDiagram
     end
     PSM-->>RBus: Parameter Value Response
     RBus-->>Client: Return Parameter Value
-    
+
     Client->>RBus: Parameter Set Request
     RBus->>PSM: Route Set Method Call
     PSM->>PSM: Validate Parameter Value & Type
@@ -339,28 +337,26 @@ CcspPsm integrates with platform-provided Syscfg APIs for persistent storage and
 
 **Core HAL APIs:**
 
-| HAL API | Purpose | Parameters | Return Values | Implementation / Ownership |
-|---------|---------|------------|---------------|---------------------------|
-| `syscfg_get()` | Retrieve a platform-specific configuration parameter from persistent storage | 4-argument form: `syscfg_get(NULL, key, buf, size)` | `0` on success, non-zero on error | External Syscfg API consumed in `ssp_cfmif.c`; not implemented in this repository |
-| `syscfg_unset()` | Remove a platform-specific configuration parameter from persistent storage | 2-argument form: `syscfg_unset(NULL, key)` | `0` on success, non-zero on error | External Syscfg API consumed in `ssp_cfmif.c`; not implemented in this repository |
-| `PsmHal_GetCustomParams()` | Retrieve platform-specific default parameters for initial configuration | `PsmHalParam_t** params, int* cnt` | `0` on success, `-1` on failure or no custom parameters | `psm_hal_apis.c` |
+| HAL API                    | Purpose                                                                      | Parameters                                          | Return Values                                           | Implementation / Ownership                                                        |
+| -------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `syscfg_get()`             | Retrieve a platform-specific configuration parameter from persistent storage | 4-argument form: `syscfg_get(NULL, key, buf, size)` | `0` on success, non-zero on error                       | External Syscfg API consumed in `ssp_cfmif.c`; not implemented in this repository |
+| `syscfg_unset()`           | Remove a platform-specific configuration parameter from persistent storage   | 2-argument form: `syscfg_unset(NULL, key)`          | `0` on success, non-zero on error                       | External Syscfg API consumed in `ssp_cfmif.c`; not implemented in this repository |
+| `PsmHal_GetCustomParams()` | Retrieve platform-specific default parameters for initial configuration      | `PsmHalParam_t** params, int* cnt`                  | `0` on success, `-1` on failure or no custom parameters | `psm_hal_apis.c`                                                                  |
 
 ### Key Implementation Logic
 
 - **Parameter Registry Engine**: Core parameter management logic implemented in `psm_sysro_interface.c` with hash-based parameter lookup, type validation, and atomic update operations. Main registry implementation in `psm_sysro_base.c` with parameter tree management and namespace handling. State transition handlers in `psm_sysro_states.c` for parameter lifecycle management and event processing.
-  
-- **Configuration File Processing**: XML configuration file parsing and validation handled through libxml2 integration with custom schema validation. Configuration parsing engine in `psm_flo_parse.c` with XML schema validation and parameter extraction. File operation management in `psm_flo_operation.c` with atomic file updates and backup creation. Configuration loading state machine in `psm_flo_states.c` for startup and runtime configuration management.
-  
+- **Configuration File Processing**: XML configuration file parsing is handled using the ANSC XML DOM APIs (e.g., `AnscCreateXmlDomNode`, `AnscXmlDomNodeEncode`). The configuration parsing engine in `psm_flo_parse.c` performs XML document handling and parameter extraction, with validation limited to the checks implemented in the parser and surrounding configuration-loading logic. Configuration load/save and related file control logic is in `psm_flo_control.c` (for example, `PsmFloLoadRegFile()` and `PsmFloSaveRegFile()`). Configuration loading state machine in `psm_flo_states.c` for startup and runtime configuration management.
+
 - **Error Handling Strategy**: Comprehensive error detection and recovery mechanisms for storage failures, parsing errors, and IPC communication issues. HAL error code mapping with automatic retry mechanisms for transient failures. Configuration validation with rollback support for invalid parameter updates. Graceful degradation with emergency read-only mode when persistent storage fails.
-  
 - **Logging & Debugging**: Multi-level logging system with component-specific categories and runtime verbosity control. Parameter operation logging with value change tracking and audit trail. File operation tracing with performance metrics and error diagnostics. RBus message tracing for IPC debugging and performance analysis.
 
 ### Key Configuration Files
 
-| Configuration File | Purpose | Key Parameters | Default Values | Override Mechanisms |
-|--------------------|---------|---------------|----------------|--------------------|
-| `/psm/config/psm_def_cfg.xml.gz` | Default/base configuration (maps to `PSM_DEF_DEF_FILE_NAME`) | All default parameter values | Factory defaults | Replacement via update procedure |
-| `/psm/config/psm_cur_cfg.xml.gz` | Current persistent configuration (maps to `PSM_DEF_CUR_FILE_NAME`) | All runtime parameters | Populated from default config | Parameter Set operations, configuration import |
-| `/psm/config/psm_bak_cfg.xml.gz` | Backup persisted configuration archive (maps to `PSM_DEF_BAK_FILE_NAME`) | Previous stable configuration set | Previous persisted current configuration | Automatic backup/restore workflow |
-| `/tmp/bbhm_cur_cfg.xml` | Runtime working copy of current active configuration (`PSM_CUR_CONFIG_FILE_NAME` in `ssp_cfmif.c`) | All runtime parameters | Populated from persistent config | Parameter Set operations |
-| `/nvram/bbhm_bak_cfg.xml` | Runtime backup configuration (`PSM_BAK_CONFIG_FILE_NAME` in `ssp_cfmif.c`) | Previous stable configuration | Previous current config | Automatic backup on major changes |
+| Configuration File               | Purpose                                                                                            | Key Parameters                    | Default Values                           | Override Mechanisms                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| `/psm/config/psm_def_cfg.xml.gz` | Default/base configuration (maps to `PSM_DEF_DEF_FILE_NAME`)                                       | All default parameter values      | Factory defaults                         | Replacement via update procedure               |
+| `/psm/config/psm_cur_cfg.xml.gz` | Current persistent configuration (maps to `PSM_DEF_CUR_FILE_NAME`)                                 | All runtime parameters            | Populated from default config            | Parameter Set operations, configuration import |
+| `/psm/config/psm_bak_cfg.xml.gz` | Backup persisted configuration archive (maps to `PSM_DEF_BAK_FILE_NAME`)                           | Previous stable configuration set | Previous persisted current configuration | Automatic backup/restore workflow              |
+| `/tmp/bbhm_cur_cfg.xml`          | Runtime working copy of current active configuration (`PSM_CUR_CONFIG_FILE_NAME` in `ssp_cfmif.c`) | All runtime parameters            | Populated from persistent config         | Parameter Set operations                       |
+| `/nvram/bbhm_bak_cfg.xml`        | Runtime backup configuration (`PSM_BAK_CONFIG_FILE_NAME` in `ssp_cfmif.c`)                         | Previous stable configuration     | Previous current config                  | Automatic backup on major changes              |
