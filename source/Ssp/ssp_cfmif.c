@@ -335,8 +335,11 @@ static int load_records(const char *file)
                 set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_SYNC);
             }
 
-            if (set_rc != CORD_RC_SUCCESS) {
+            if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
                 CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
+                                __FUNCTION__, (int)set_rc, rec->name));
+            } else if (set_rc == CORD_RC_PERSIST_FAILED) {
+                CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
                                 __FUNCTION__, (int)set_rc, rec->name));
             }
 
@@ -422,7 +425,6 @@ static int insert_record(struct psm_record *new, int overwrite)
         if (errno != 0 || endptr == val) {
             CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
                             __FUNCTION__, new->name, val));
-            record_free(new);
             return -1;
         }
         set_rc = cord_set_i32(new->name, (int32_t)v, CORD_FLAG_PERSIST_SYNC);
@@ -433,7 +435,6 @@ static int insert_record(struct psm_record *new, int overwrite)
         if (errno != 0 || endptr == val) {
             CcspTraceError(("%s: uint parse fail for '%s'='%s'\n",
                             __FUNCTION__, new->name, val));
-            record_free(new);
             return -1;
         }
         set_rc = cord_set_u32(new->name, (uint32_t)v, CORD_FLAG_PERSIST_SYNC);
@@ -445,11 +446,13 @@ static int insert_record(struct psm_record *new, int overwrite)
         set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_SYNC);
     }
 
-    if (set_rc != CORD_RC_SUCCESS) {
+    if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
         CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
                         __FUNCTION__, (int)set_rc, new->name));
-        record_free(new);
         return -1;
+    } else if (set_rc == CORD_RC_PERSIST_FAILED) {
+        CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
+                        __FUNCTION__, (int)set_rc, new->name));
     }
 
     record_free(new);
