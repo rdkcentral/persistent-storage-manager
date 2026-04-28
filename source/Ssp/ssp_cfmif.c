@@ -285,7 +285,7 @@ static int load_records(const char *file)
     char line[4096];
     struct psm_record *rec;
     unsigned int record_count = 0;
-    unsigned int stored_count = 0;
+    
 
 
     if ((fp = fopen(file, "rb")) == NULL)
@@ -310,6 +310,7 @@ static int load_records(const char *file)
         {
             const char *val = rec->value ? rec->value : "";
             cord_rc_t   set_rc = CORD_RC_SUCCESS;
+            unsigned int stored_count = 0;
 
 
             if (rec->type && strcmp(rec->type, "sint") == 0) {
