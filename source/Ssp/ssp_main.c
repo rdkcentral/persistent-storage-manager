@@ -285,9 +285,9 @@ int main(int argc, char* argv[])
     setlinebuf(stdout);
     setlinebuf(stderr);
 
-#ifndef CORD_ENABLED
+
     pComponentName = CCSP_DBUS_PSM;
-#endif
+
 #ifdef FEATURE_SUPPORT_RDKLOG
     RDK_LOGGER_INIT();
 #endif
