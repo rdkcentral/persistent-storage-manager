@@ -127,6 +127,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERROR: CCSP_Message_Bus_Init failed (ret=%d)\n", ret);
         return 1;
     }
+#else
+    cord_open();
 #endif /* CORD_ENABLED */
 
     printf("========================================\n");
@@ -231,6 +233,8 @@ int main(int argc, char *argv[])
     /* ---- Clean up ------------------------------------------------- */
 #ifndef CORD_ENABLED
     CCSP_Message_Bus_Exit(bus_handle);
+#else
+    cord_close();
 #endif /* CORD_ENABLED */
 
     return (set_ok && get_ok) ? 0 : 1;
