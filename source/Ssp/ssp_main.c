@@ -388,7 +388,19 @@ int main(int argc, char* argv[])
     if(ret != 0){
         return 1;
     }
-    creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    {
+        int psm_fd = creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (psm_fd >= 0) {
+            FILE *fp_uptime = fopen("/proc/uptime", "r");
+            if (fp_uptime) {
+                char uptime_buf[64] = {0};
+                if (fgets(uptime_buf, sizeof(uptime_buf), fp_uptime) != NULL)
+                    (void)write(psm_fd, uptime_buf, strlen(uptime_buf));
+                fclose(fp_uptime);
+            }
+            close(psm_fd);
+        }
+    }
     if(!blocklist_ret){
         update_process_caps(&appcaps);
         read_capability(&appcaps);
