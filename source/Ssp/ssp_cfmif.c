@@ -144,7 +144,7 @@ static char *remove_quotes (char *buf)
 
     return buf;
 }
-
+#ifndef CORD_ENABLED
 static unsigned int hash (const char *str)
 {
     unsigned int hash = 5381;
@@ -156,7 +156,7 @@ static unsigned int hash (const char *str)
 
     return hash;
 }
-#ifndef CORD_ENABLED
+
 static unsigned int record_hash (const char *str)
 {
     return hash(str) % PSM_REC_HASH_SIZE;
