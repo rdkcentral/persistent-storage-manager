@@ -503,7 +503,6 @@ int  cmd_dispatch(int  command)
                         pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)&cfm_ifo;
 #endif
 
-                        pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
 #ifdef CORD_ENABLED
                         ret = cord_open();
                         if(ret != CORD_RC_SUCCESS && ret != CORD_RC_ALREADY_OPEN)
@@ -511,13 +510,15 @@ int  cmd_dispatch(int  command)
                             CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : cord_open failed: %d\n", ret));
                             return -1;
                         }
+                        pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
 #else
+                        pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
                         ret = PsmDbusInit();
                         if(ret != 0)
                            return -1;
 
                         PsmRbusInit();
-#endif
+#endif             
 
                         bEngaged = TRUE;
 
