@@ -106,7 +106,7 @@
 #define PSM_CORD_DEBUG 1
 #endif
 #if PSM_CORD_DEBUG
-#define PSM_CORD_DBG(args) CcspTraceWarning args
+#define PSM_CORD_DBG(args) CcspTraceWarning(args)
 #else
 #define PSM_CORD_DBG(args)
 #endif
