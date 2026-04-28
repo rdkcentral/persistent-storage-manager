@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
         NULL,               /* use default malloc */
         NULL                /* use default free   */
     );
-    if (ret != CCSP_SUCCESS) {
+    if (ret == -1) {
         fprintf(stderr, "ERROR: CCSP_Message_Bus_Init failed (ret=%d)\n", ret);
         return 1;
     }
