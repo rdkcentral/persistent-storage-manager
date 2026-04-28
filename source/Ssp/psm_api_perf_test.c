@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     /* ---- Bus initialisation --------------------------------------- */
     void *bus_handle = NULL;
     int ret = CCSP_SUCCESS;
-#ifndef CORD_ENABLED
+
     ret = CCSP_Message_Bus_Init(
         TEST_COMPONENT_ID,
         CCSP_MSG_BUS_CFG,   /* /tmp/ccsp_msg.cfg */
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERROR: CCSP_Message_Bus_Init failed (ret=%d)\n", ret);
         return 1;
     }
-#else
+#ifdef CORD_ENABLED
     cord_open();
 #endif /* CORD_ENABLED */
 
@@ -235,9 +235,9 @@ int main(int argc, char *argv[])
     printf("\n========================================\n");
 
     /* ---- Clean up ------------------------------------------------- */
-#ifndef CORD_ENABLED
+
     CCSP_Message_Bus_Exit(bus_handle);
-#else
+#ifdef CORD_ENABLED
     cord_close();
 #endif /* CORD_ENABLED */
 
