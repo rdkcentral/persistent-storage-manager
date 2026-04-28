@@ -784,7 +784,6 @@ int  getParameterValues(
                                 AnscFreeMemory(pParameterValue->val->parameterName);
                                 AnscFreeMemory(pParameterValue->val);
                                 AnscFreeMemory(pParameterValue);
-                                pParameterValue = NULL;  // Set to NULL after freeing
                                 ret = CCSP_FAILURE;
                                 goto EXIT;
                             }
@@ -796,7 +795,6 @@ int  getParameterValues(
                             AnscFreeMemory(pParameterValue->val->parameterName);
                             AnscFreeMemory(pParameterValue->val);
                             AnscFreeMemory(pParameterValue);
-                            pParameterValue = NULL;  // Set to NULL after freeing
                         }
                     }
                     else
@@ -812,7 +810,6 @@ int  getParameterValues(
                 else
                 {
                     AnscFreeMemory(pParameterValue);
-                    pParameterValue = NULL;  // Set to NULL after freeing
                 }
             }
         }
@@ -855,29 +852,6 @@ int  getParameterValues(
     *param_val = val;
 
 EXIT:
-
-    /* FIX: CID: 70045 Resource_leak : cleanup any remaining nodes in list to avoid memory leak */
-        PSINGLE_LINK_ENTRY pSLinkEntry = NULL;
-        while ((pSLinkEntry = AnscSListPopEntry(&ParameterValueList)) != NULL)
-        {
-            pParameterValue = ACCESS_CONTAINER(pSLinkEntry, PARAMETER_VALUE, Linkage);
-
-            if (pParameterValue)
-            {
-                if (pParameterValue->val)
-                {
-                    if (pParameterValue->val->parameterName)
-                        AnscFreeMemory(pParameterValue->val->parameterName);
-
-                    if (pParameterValue->val->parameterValue)
-                        AnscFreeMemory(pParameterValue->val->parameterValue);
-
-                    AnscFreeMemory(pParameterValue->val);
-                }
-                AnscFreeMemory(pParameterValue);
-            }
-        }
-    
 
     if ( hSysRoot )
     {
