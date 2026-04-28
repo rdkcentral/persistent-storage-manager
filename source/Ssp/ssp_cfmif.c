@@ -1730,10 +1730,11 @@ again:
     }
 
     /* import customer params without overwrite */
-    if (import_custom_params(0) != 0)
+    if (import_custom_params(0) != 0){
         CcspTraceError(("%s: Fail to import custom params\n", __FUNCTION__));
-    else
+    } else {
         PSM_CORD_DBG(("%s: import_custom_params overwrite=0 complete\n", __FUNCTION__));
+    }
 
     /* merge missing param from default config */
     snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->DefFileName);
@@ -1744,10 +1745,11 @@ again:
     }
 
     /* import customer params with overwrite */
-    if (import_custom_partners_params(1) != 0)
+    if (import_custom_partners_params(1) != 0){
         CcspTraceInfo(("%s: Fail to import custom partners params\n", __FUNCTION__));
-    else
+    } else {
         PSM_CORD_DBG(("%s: import_custom_partners_params overwrite=1 complete\n", __FUNCTION__));
+    }
     
      if( merge_missing_Partner_params() !=0)
      {
