@@ -156,7 +156,7 @@ static unsigned int hash (const char *str)
 
     return hash;
 }
-#ifdef CORD_ENABLED
+#ifndef CORD_ENABLED
 static unsigned int record_hash (const char *str)
 {
     return hash(str) % PSM_REC_HASH_SIZE;
