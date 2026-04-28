@@ -99,10 +99,10 @@
 #endif
 
 #include <sys/time.h>
-#ifdef CORD_ENABLED
+
 #include <cord.h>
 #include <errno.h>
-#endif
+
 
 int Psm_GetCustomPartnersParams( PsmHalParam_t **params, int *cnt1 );
 int Psm_ApplyCustomPartnersParams( PsmHalParam_t **params, int *cnt2 );
