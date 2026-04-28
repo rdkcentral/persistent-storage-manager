@@ -53,9 +53,9 @@
 #include "ssp_global.h"
 #include "safec_lib_common.h"
 #include "secure_wrapper.h"
-#ifdef CORD_ENABLED
+
 #include <cord.h>
-#endif
+
 #ifdef ENABLE_SD_NOTIFY
 #include <systemd/sd-daemon.h>
 #endif
