@@ -547,6 +547,8 @@ int  cmd_dispatch(int  command)
                     {
                         CCSP_Message_Bus_Exit(bus_handle);
                     }
+#else
+                    cord_close();
 #endif
 
                     if ( pPsmSysRegistry )
