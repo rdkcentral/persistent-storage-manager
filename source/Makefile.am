@@ -61,9 +61,9 @@ psm_api_perf_test_SOURCES = Ssp/psm_api_perf_test.c
 
 psm_api_perf_test_LDFLAGS = -lccsp_common -lpthread
 
+PsmSsp_LDFLAGS  += -lcord
 if CORD_ENABLED
 PsmSsp_CFLAGS  += -DCORD_ENABLED
-PsmSsp_LDFLAGS  += -lcord
 psm_api_perf_test_CFLAGS  += -DCORD_ENABLED
 psm_api_perf_test_LDFLAGS += -lcord
 else
