@@ -156,12 +156,12 @@ static unsigned int hash (const char *str)
 
     return hash;
 }
-
+#ifdef CORD_ENABLED
 static unsigned int record_hash (const char *str)
 {
     return hash(str) % PSM_REC_HASH_SIZE;
 }
-
+#endif
 static void record_free (struct psm_record *rec)
 {
     free(rec);
@@ -285,8 +285,7 @@ static int load_records(const char *file)
 {
     FILE *fp;
     char line[4096];
-    struct psm_record *rec, *last;
-    unsigned int idx;
+    struct psm_record *rec;
 
     if ((fp = fopen(file, "rb")) == NULL)
     {
@@ -344,6 +343,8 @@ static int load_records(const char *file)
             record_free(rec);
         }
 #else
+        struct psm_record *last;
+        unsigned int idx;
         idx = record_hash(rec->name);
         pthread_mutex_lock(&rec_hash_lock);
         if (rec_hash[idx] == NULL) {
@@ -843,39 +844,23 @@ static int import_custom_params(int overwrite)
         return -1;
 
     for (i = 0; i < cus_cnt; i++) {
+        struct psm_record *rec;
+
         if (!cus_params[i].name || !strlen(cus_params[i].name)) {
             CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
             continue;
         }
 
-#ifdef CORD_ENABLED
-        {
-            cord_rc_t set_rc = cord_set_string(cus_params[i].name,
-                                               cus_params[i].value ? cus_params[i].value : "",
-                                               CORD_FLAG_PERSIST_SYNC);
-            if (set_rc != CORD_RC_SUCCESS) {
-                CcspTraceError(("%s: cord_set_string failed rc=%d for '%s'\n",
-                                __FUNCTION__, (int)set_rc, cus_params[i].name));
-                goto out;
-            }
+        rec = record_create(cus_params[i].name, "astr", NULL, cus_params[i].value);
+        if (rec == NULL) {
+            CcspTraceError(("%s: record_create fail\n", __FUNCTION__));
+            goto out;
         }
-#else
-        {
-            struct psm_record *rec;
 
-            rec = record_create(cus_params[i].name, "astr", NULL, cus_params[i].value);
-            if (rec == NULL) {
-                CcspTraceError(("%s: record_create fail\n", __FUNCTION__));
-                goto out;
-            }
-
-            if (insert_record(rec, overwrite) != 0) {
-                CcspTraceError(("%s: insert_record() fail\n", __FUNCTION__));
-                record_free(rec);
-                goto out;
-            }
+        if (insert_record(rec, overwrite) != 0) {
+            CcspTraceError(("%s: insert_record() fail\n", __FUNCTION__));
+            goto out;
         }
-#endif /* CORD_ENABLED */
     }
 
     err = 0;
