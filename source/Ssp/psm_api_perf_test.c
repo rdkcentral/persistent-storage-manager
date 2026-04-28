@@ -49,6 +49,10 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef CORD_ENABLED
+#include <cord.h>
+#endif
+
 #include "ccsp_message_bus.h"   /* CCSP_Message_Bus_Init/Exit, CCSP_MESSAGE_BUS_INFO */
 #include "ccsp_base_api.h"      /* CCSP_SUCCESS, ccsp_string                         */
 #include "ccsp_psm_helper.h"    /* PSM_Set_Record_Value2, PSM_Get_Record_Value2       */
