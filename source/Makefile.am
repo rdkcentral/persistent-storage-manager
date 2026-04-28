@@ -56,7 +56,7 @@ PsmSsp_LDFLAGS  += -lcord
 else
 PsmSsp_SOURCES += Ssp/ssp_rbus.c \
                   Ssp/ssp_dbus.c
-PsmSsp_LDFLAGS  = -lrbus
+PsmSsp_LDFLAGS  += -lrbus
 endif
 
 if IS_LIBRDKCONFIG_ENABLED
