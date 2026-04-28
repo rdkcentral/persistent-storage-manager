@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 #include <stdio.h>
+#ifndef CORD_ENABLED
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -484,3 +485,4 @@ int PsmRbusInit()
     }
     return rc;
 }
+#endif /* CORD_ENABLED */

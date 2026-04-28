@@ -56,7 +56,9 @@
 #include "psm_sysro_interface.h"
 #include "psm_ifo_cfm.h"
 
+#ifndef CORD_ENABLED
 #include "ccsp_message_bus.h"
+#endif
 #include "ccsp_base_api.h"
 
 #include "psm_hal_apis.h"
@@ -78,8 +80,10 @@
 int  cmd_dispatch(int  command);
 int  gather_info ();
 
+#ifndef CORD_ENABLED
 int  PsmDbusInit ();
 int  PsmRbusInit ();
+#endif
 
 ANSC_STATUS
 ssp_CfmReadCurConfig
@@ -109,6 +113,7 @@ ssp_CfmSaveCurConfig
 ANSC_STATUS
 ssp_CfmUpdateConfigs(ANSC_HANDLE hThisObject, const char *newConfPath);
 
+#ifndef CORD_ENABLED
 int  setParameterValues(
     int sessionId,
     unsigned int writeID,
@@ -142,3 +147,4 @@ int getParameterNames(
     parameterInfoStruct_t ***param_val,
     void *user_data
 );
+#endif /* CORD_ENABLED */

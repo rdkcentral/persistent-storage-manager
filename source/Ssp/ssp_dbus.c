@@ -34,6 +34,7 @@
 **********************************************************************/
 
 #include <stdio.h>
+#ifndef CORD_ENABLED
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -1573,3 +1574,4 @@ int PsmDbusInit()
 
     return 0;
 }
+#endif /* CORD_ENABLED */

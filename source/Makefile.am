@@ -32,8 +32,6 @@ PsmSsp_CFLAGS = $(SYSTEMD_CFLAGS)
 
 PsmSsp_SOURCES = \
     Ssp/ssp_main.c \
-    Ssp/ssp_rbus.c \
-    Ssp/ssp_dbus.c \
     Ssp/ssp_cfmif.c \
     Ssp/psm_hal_apis.c \
     PsmFileLoader/psm_flo_interface.c \
@@ -51,7 +49,15 @@ PsmSsp_SOURCES = \
     PsmSysRegistry/psm_sysro_operation.c \
     PsmSysRegistry/psm_sysro_control.c
 
-PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread
+PsmSsp_LDFLAGS  = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lcjson -lsecure_wrapper -lpthread
+if CORD_ENABLED
+PsmSsp_CFLAGS  += -DCORD_ENABLED
+PsmSsp_LDFLAGS  += -lcord
+else
+PsmSsp_SOURCES += Ssp/ssp_rbus.c \
+                  Ssp/ssp_dbus.c
+PsmSsp_LDFLAGS  = -lrbus
+endif
 
 if IS_LIBRDKCONFIG_ENABLED
 PsmSsp_CFLAGS += $(LIBRDKCONFIG_FLAG)

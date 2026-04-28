@@ -53,6 +53,9 @@
 #include "ssp_global.h"
 #include "safec_lib_common.h"
 #include "secure_wrapper.h"
+#ifdef CORD_ENABLED
+#include <cord.h>
+#endif
 #ifdef ENABLE_SD_NOTIFY
 #include <systemd/sd-daemon.h>
 #endif
@@ -64,10 +67,11 @@
 #include "cap.h"
 
 #define DEBUG_INI_NAME "/etc/debug.ini"
-int GetLogInfo(ANSC_HANDLE bus_handle, char *Subsytem, char *pParameterName);
 BOOL                                bEngaged          = FALSE;
 PPSM_SYS_REGISTRY_OBJECT            pPsmSysRegistry   = (PPSM_SYS_REGISTRY_OBJECT)NULL;
+#ifndef CORD_ENABLED
 void                               *bus_handle        = NULL;
+#endif
 char                                g_Subsystem[32]   = {0};
 BOOL                                g_bLogEnable      = FALSE;
 extern char*                        pComponentName;
@@ -281,7 +285,9 @@ int main(int argc, char* argv[])
     setlinebuf(stdout);
     setlinebuf(stderr);
 
+#ifndef CORD_ENABLED
     pComponentName = CCSP_DBUS_PSM;
+#endif
 #ifdef FEATURE_SUPPORT_RDKLOG
     RDK_LOGGER_INIT();
 #endif
@@ -498,11 +504,20 @@ int  cmd_dispatch(int  command)
 #endif
 
                         pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
+#ifdef CORD_ENABLED
+                        ret = cord_open();
+                        if(ret != CORD_RC_SUCCESS && ret != CORD_RC_ALREADY_OPEN)
+                        {
+                            CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : cord_open failed: %d\n", ret));
+                            return -1;
+                        }
+#else
                         ret = PsmDbusInit();
                         if(ret != 0)
                            return -1;
 
                         PsmRbusInit();
+#endif
 
                         bEngaged = TRUE;
 
@@ -526,10 +541,12 @@ int  cmd_dispatch(int  command)
                     CcspTraceInfo((" inside case 'c' bEngaged\n"));
                     CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM is being unloaded ...\n"));
 
+#ifndef CORD_ENABLED
                     if ( bus_handle != NULL )
                     {
                         CCSP_Message_Bus_Exit(bus_handle);
                     }
+#endif
 
                     if ( pPsmSysRegistry )
                     {
