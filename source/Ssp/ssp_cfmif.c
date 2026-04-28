@@ -305,6 +305,7 @@ static int load_records(const char *file)
 
         record_count++;
 
+#ifdef CORD_ENABLED
         /* Store into CORD */
         {
             const char *val = rec->value ? rec->value : "";
@@ -350,6 +351,7 @@ static int load_records(const char *file)
                 stored_count++;
             }
         }
+#endif /* CORD_ENABLED */
 
         /* Also insert into rec_hash for in-memory lookup */
         {
@@ -403,69 +405,72 @@ static void free_records(void)
 }
 static int insert_record(struct psm_record *new, int overwrite)
 {
-    cord_value_t *pExisting = NULL;
-    cord_rc_t    get_rc;
-    cord_rc_t    set_rc = CORD_RC_SUCCESS;
-    const char  *val = new->value ? new->value : "";
     int h_idx;
     struct psm_record *rec, *prev;
     errno_t rc = -1;
     int ind = -1;
 
+#ifdef CORD_ENABLED
+    {
+        cord_value_t *pExisting = NULL;
+        cord_rc_t    get_rc;
+        cord_rc_t    set_rc = CORD_RC_SUCCESS;
+        const char  *val = new->value ? new->value : "";
 
-    /* Check whether the key already exists in CORD */
-    get_rc = cord_get(new->name, &pExisting);
-    if (get_rc == CORD_RC_SUCCESS) {
-        /* Key exists */
-        cord_free_values(pExisting);
-        if (!overwrite) {
-            /* overwrite=0: leave existing value untouched */
-            record_free(new);
-            return 0;
+        /* Check whether the key already exists in CORD */
+        get_rc = cord_get(new->name, &pExisting);
+        if (get_rc == CORD_RC_SUCCESS) {
+            /* Key exists */
+            cord_free_values(pExisting);
+            if (!overwrite) {
+                /* overwrite=0: leave existing value untouched */
+                record_free(new);
+                return 0;
+            }
+            /* overwrite!=0: fall through to cord_set below */
         }
-        /* overwrite!=0: fall through to cord_set below */
-    }
-    /* else: key not found — also fall through to cord_set (insert) */
+        /* else: key not found — also fall through to cord_set (insert) */
 
-    if (new->type && strcmp(new->type, "sint") == 0) {
-        char *endptr = NULL;
-        errno = 0;
-        long v = strtol(val, &endptr, 10);
-        if (errno != 0 || endptr == val) {
-            CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
-                            __FUNCTION__, new->name, val));
+        if (new->type && strcmp(new->type, "sint") == 0) {
+            char *endptr = NULL;
+            errno = 0;
+            long v = strtol(val, &endptr, 10);
+            if (errno != 0 || endptr == val) {
+                CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
+                                __FUNCTION__, new->name, val));
+                return -1;
+            }
+            set_rc = cord_set_i32(new->name, (int32_t)v, CORD_FLAG_PERSIST_SYNC);
+        } else if (new->type && strcmp(new->type, "uint") == 0) {
+            char *endptr = NULL;
+            errno = 0;
+            unsigned long v = strtoul(val, &endptr, 10);
+            if (errno != 0 || endptr == val) {
+                CcspTraceError(("%s: uint parse fail for '%s'='%s'\n",
+                                __FUNCTION__, new->name, val));
+                return -1;
+            }
+            set_rc = cord_set_u32(new->name, (uint32_t)v, CORD_FLAG_PERSIST_SYNC);
+        } else if (new->type && strcmp(new->type, "bool") == 0) {
+            bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
+            set_rc = cord_set_bool(new->name, bval, CORD_FLAG_PERSIST_SYNC);
+        } else {
+            /* astr, bstr, hcxt, enum, unknown — store as string */
+            set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_SYNC);
+        }
+
+        if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
+            CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
+                            __FUNCTION__, (int)set_rc, new->name));
             return -1;
+        } else if (set_rc == CORD_RC_PERSIST_FAILED) {
+            CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
+                            __FUNCTION__, (int)set_rc, new->name));
         }
-        set_rc = cord_set_i32(new->name, (int32_t)v, CORD_FLAG_PERSIST_SYNC);
-    } else if (new->type && strcmp(new->type, "uint") == 0) {
-        char *endptr = NULL;
-        errno = 0;
-        unsigned long v = strtoul(val, &endptr, 10);
-        if (errno != 0 || endptr == val) {
-            CcspTraceError(("%s: uint parse fail for '%s'='%s'\n",
-                            __FUNCTION__, new->name, val));
-            return -1;
-        }
-        set_rc = cord_set_u32(new->name, (uint32_t)v, CORD_FLAG_PERSIST_SYNC);
-    } else if (new->type && strcmp(new->type, "bool") == 0) {
-        bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
-        set_rc = cord_set_bool(new->name, bval, CORD_FLAG_PERSIST_SYNC);
-    } else {
-        /* astr, bstr, hcxt, enum, unknown — store as string */
-        set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_SYNC);
     }
+#endif /* CORD_ENABLED */
 
-    if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
-        CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
-                        __FUNCTION__, (int)set_rc, new->name));
-        return -1;
-    } else if (set_rc == CORD_RC_PERSIST_FAILED) {
-        CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
-                        __FUNCTION__, (int)set_rc, new->name));
-    } else {
-    }
-
-    /* Also update rec_hash for in-memory lookup */
+    /* Update rec_hash for in-memory lookup */
     h_idx = record_hash(new->name);
 
     pthread_mutex_lock(&rec_hash_lock);
@@ -602,18 +607,22 @@ static BOOL IsParameterMissed (void)
 
     for (k = 0; k < PSM_PARAM_TOTAL; k++)
     {
+#ifdef CORD_ENABLED
         /* Check CORD first */
-        cord_value_t *pVal = NULL;
-        cord_rc_t get_rc = cord_get(parm_present_table[k].name, &pVal);
-        if (get_rc == CORD_RC_SUCCESS) {
-            cord_free_values(pVal);
-            parm_present_table[k].value = true;
-        } else {
-            bMissed = true;
-            CcspTraceInfo(("IsParameterMissed param need to merge %s\n", parm_present_table[k].name));
+        {
+            cord_value_t *pVal = NULL;
+            cord_rc_t get_rc = cord_get(parm_present_table[k].name, &pVal);
+            if (get_rc == CORD_RC_SUCCESS) {
+                cord_free_values(pVal);
+                parm_present_table[k].value = true;
+            } else {
+                bMissed = true;
+                CcspTraceInfo(("IsParameterMissed param need to merge %s\n", parm_present_table[k].name));
+            }
         }
+#endif /* CORD_ENABLED */
 
-        /* Also check rec_hash for in-memory lookup */
+        /* Check rec_hash for in-memory lookup */
         {
             int h_idx = record_hash(parm_present_table[k].name);
             pthread_mutex_lock(&rec_hash_lock);
