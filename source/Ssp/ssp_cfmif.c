@@ -144,7 +144,6 @@ static char *remove_quotes (char *buf)
 
     return buf;
 }
-#ifndef CORD_ENABLED
 static unsigned int hash (const char *str)
 {
     unsigned int hash = 5381;
@@ -161,7 +160,6 @@ static unsigned int record_hash (const char *str)
 {
     return hash(str) % PSM_REC_HASH_SIZE;
 }
-#endif
 static void record_free (struct psm_record *rec)
 {
     free(rec);
@@ -302,7 +300,7 @@ static int load_records(const char *file)
             continue;
         }
 
-#ifdef CORD_ENABLED
+        /* Store into CORD */
         {
             const char *val = rec->value ? rec->value : "";
             cord_rc_t   set_rc = CORD_RC_SUCCESS;
@@ -342,33 +340,31 @@ static int load_records(const char *file)
                 CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
                                 __FUNCTION__, (int)set_rc, rec->name));
             }
+        }
 
-            record_free(rec);
+        /* Also insert into rec_hash for in-memory lookup */
+        {
+            struct psm_record *last;
+            unsigned int idx;
+            idx = record_hash(rec->name);
+            pthread_mutex_lock(&rec_hash_lock);
+            if (rec_hash[idx] == NULL) {
+                rec_hash[idx] = rec;
+            } else {
+                for (last = rec_hash[idx]; last && last->next; last = last->next)
+                    ;
+                /* Coverity Issue Fix - CID:57323 : Forward NULL */
+                if (last == NULL) {
+                    CcspTraceError(("%s-%d:Coverity Error occured as Forward NULL in last\n", __FUNCTION__, __LINE__));
+                    pthread_mutex_unlock(&rec_hash_lock);
+                    fclose(fp);
+                    AnscFreeMemory(rec);
+                    return -1;
+                }
+                last->next = rec;
+            }
+            pthread_mutex_unlock(&rec_hash_lock);
         }
-#else
-        struct psm_record *last;
-        unsigned int idx;
-        idx = record_hash(rec->name);
-        pthread_mutex_lock(&rec_hash_lock);
-        if (rec_hash[idx] == NULL) {
-            rec_hash[idx] = rec;
-        } else {
-            for (last = rec_hash[idx]; last && last->next; last = last->next)
-                ;
-           	/* Coverity Issue Fix - CID:57323 : Forward NULL*/ 
-		if(last == NULL)
-        	{	
-                  	CcspTraceError(("%s-%d:Coverity Error occured as Forward NULL in last\n",__FUNCTION__,__LINE__));
-                  	pthread_mutex_unlock(&rec_hash_lock);
-                  	fclose(fp);
-                       /*Coverity Fix CID:128923 RESOURCE_LEAK */
-                        AnscFreeMemory(rec);
-                	return -1;
-       	        }
-		last->next = rec;
-        }
-        pthread_mutex_unlock(&rec_hash_lock);
-#endif /* CORD_ENABLED */
     }
 
     fclose(fp);
@@ -398,11 +394,14 @@ static void free_records(void)
 }
 static int insert_record(struct psm_record *new, int overwrite)
 {
-#ifdef CORD_ENABLED
     cord_value_t *pExisting = NULL;
     cord_rc_t    get_rc;
     cord_rc_t    set_rc = CORD_RC_SUCCESS;
     const char  *val = new->value ? new->value : "";
+    int h_idx;
+    struct psm_record *rec, *prev;
+    errno_t rc = -1;
+    int ind = -1;
 
     /* Check whether the key already exists in CORD */
     get_rc = cord_get(new->name, &pExisting);
@@ -410,7 +409,7 @@ static int insert_record(struct psm_record *new, int overwrite)
         /* Key exists */
         cord_free_values(pExisting);
         if (!overwrite) {
-            /* overwrite=0: leave existing value untouched, same as hash table */
+            /* overwrite=0: leave existing value untouched */
             record_free(new);
             return 0;
         }
@@ -455,14 +454,7 @@ static int insert_record(struct psm_record *new, int overwrite)
                         __FUNCTION__, (int)set_rc, new->name));
     }
 
-    record_free(new);
-    return 0;
-#else
-    int h_idx;
-    struct psm_record *rec, *prev;
-    errno_t rc = -1;
-    int ind = -1;
-
+    /* Also update rec_hash for in-memory lookup */
     h_idx = record_hash(new->name);
 
     pthread_mutex_lock(&rec_hash_lock);
@@ -476,18 +468,14 @@ static int insert_record(struct psm_record *new, int overwrite)
     for (prev = NULL, rec = rec_hash[h_idx]; rec; prev = rec, rec = rec->next) {
         rc = strcmp_s(rec->name, strlen(rec->name), new->name, &ind);
         ERR_CHK(rc);
-	if((rc == EOK) && (ind != 0))
+        if ((rc == EOK) && (ind != 0))
             continue;
 
         if (!overwrite) {
-            //cfm_log_dbg(("[IMPORTED-E] %s %s\n", new->name, new->value ? new->value : ""));
             record_free(new);
         } else {
             /* do not support change type/contentType */
-
             new->next = rec->next;
-            /* May be I can use hlist in list.h someday.
-             * things will be easier. */
             if (rec == rec_hash[h_idx]) {
                 rec_hash[h_idx] = new;
             } else {
@@ -499,7 +487,6 @@ static int insert_record(struct psm_record *new, int overwrite)
                     return -1;
                 }
             }
-
             record_free(rec);
             cfm_log_dbg(("[IMPORTED-O] %s %s\n", new->name, new->value ? new->value : ""));
         }
@@ -509,20 +496,17 @@ static int insert_record(struct psm_record *new, int overwrite)
         new->next = rec_hash[h_idx];
         rec_hash[h_idx] = new;
 
-       /* Security Requiremnt: Log messages must not disclose any confidential data
-           like cryptographic keys and password. So don't save Passphrase on log message.
-        */
-        if ( NULL == strstr(new->name, "Passphrase" ) ) {
-            CcspTraceInfo(("%s : [IMPORTED-NEW] %s %s\n",__FUNCTION__, new->name, new->value ? new->value : ""));
-       }
-       else {
-           CcspTraceInfo(("%s : [IMPORTED-NEW] Not storing the value for parameter %s due to security restriction. \n",__FUNCTION__, new->name));
-       }
+        /* Security Requirement: Log messages must not disclose any confidential data
+           like cryptographic keys and password. So don't save Passphrase on log message. */
+        if (NULL == strstr(new->name, "Passphrase")) {
+            CcspTraceInfo(("%s : [IMPORTED-NEW] %s %s\n", __FUNCTION__, new->name, new->value ? new->value : ""));
+        } else {
+            CcspTraceInfo(("%s : [IMPORTED-NEW] Not storing the value for parameter %s due to security restriction. \n", __FUNCTION__, new->name));
+        }
     }
 
     pthread_mutex_unlock(&rec_hash_lock);
     return 0;
-#endif /* CORD_ENABLED */
 }
 
 #define PSM_PARAM_TOTAL (sizeof(parm_present_table)/sizeof(parm_present_table[0]))
@@ -602,11 +586,11 @@ static void insert (char *Name, char *value)
 static BOOL IsParameterMissed (void)
 {
     BOOL bMissed = false;
-    unsigned int k =0;
+    unsigned int k = 0;
 
     for (k = 0; k < PSM_PARAM_TOTAL; k++)
     {
-#ifdef CORD_ENABLED
+        /* Check CORD first */
         cord_value_t *pVal = NULL;
         cord_rc_t get_rc = cord_get(parm_present_table[k].name, &pVal);
         if (get_rc == CORD_RC_SUCCESS) {
@@ -616,39 +600,39 @@ static BOOL IsParameterMissed (void)
             bMissed = true;
             CcspTraceInfo(("IsParameterMissed param need to merge %s\n", parm_present_table[k].name));
         }
-#else
-        int h_idx = record_hash(parm_present_table[k].name);
-        pthread_mutex_lock(&rec_hash_lock);
-        if(rec_hash[h_idx] != NULL)
-        {
-            CcspTraceInfo(("IsParameterMissed param present %s\n", parm_present_table[k].name));
-            struct psm_record *rec, *prev;
-            errno_t rc = -1;
-            int ind = -1;
-            for (prev = NULL, rec = rec_hash[h_idx]; rec; prev = rec, rec = rec->next)
-            {
-                if(prev !=NULL)
-                CcspTraceInfo(("IsParameterMissed prev %s rec %s\n", prev->name, rec->name ));
-                rc = strcmp_s(rec->name, strlen(rec->name), parm_present_table[k].name, &ind);
-                ERR_CHK(rc);
-                if((rc == EOK) && (ind != 0))
-                {
-                    bMissed = true;
-                    continue; 
-                } 
-                //bMissed = false;
-                parm_present_table[k].value = true;
-                break;
-            }
-        }
-        else
-        {
-          bMissed = true;
-         CcspTraceInfo(("IsParameterMissed param need to merge %s\n", parm_present_table[k].name));
 
-        }        
-        pthread_mutex_unlock(&rec_hash_lock);
-#endif /* CORD_ENABLED */
+        /* Also check rec_hash for in-memory lookup */
+        {
+            int h_idx = record_hash(parm_present_table[k].name);
+            pthread_mutex_lock(&rec_hash_lock);
+            if (rec_hash[h_idx] != NULL)
+            {
+                CcspTraceInfo(("IsParameterMissed param present in rec_hash %s\n", parm_present_table[k].name));
+                struct psm_record *rec, *prev;
+                errno_t rc = -1;
+                int ind = -1;
+                for (prev = NULL, rec = rec_hash[h_idx]; rec; prev = rec, rec = rec->next)
+                {
+                    if (prev != NULL)
+                        CcspTraceInfo(("IsParameterMissed prev %s rec %s\n", prev->name, rec->name));
+                    rc = strcmp_s(rec->name, strlen(rec->name), parm_present_table[k].name, &ind);
+                    ERR_CHK(rc);
+                    if ((rc == EOK) && (ind != 0))
+                    {
+                        bMissed = true;
+                        continue;
+                    }
+                    parm_present_table[k].value = true;
+                    break;
+                }
+            }
+            else
+            {
+                bMissed = true;
+                CcspTraceInfo(("IsParameterMissed param not in rec_hash %s\n", parm_present_table[k].name));
+            }
+            pthread_mutex_unlock(&rec_hash_lock);
+        }
     }
     return bMissed;
 }
