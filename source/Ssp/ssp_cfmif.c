@@ -102,16 +102,6 @@
 #ifdef CORD_ENABLED
 #include <cord.h>
 #include <errno.h>
-#ifndef PSM_CORD_DEBUG
-#define PSM_CORD_DEBUG 1
-#endif
-#if PSM_CORD_DEBUG
-#define PSM_CORD_DBG(args) CcspTraceWarning(args)
-#else
-#define PSM_CORD_DBG(args)
-#endif
-#else
-#define PSM_CORD_DBG(args)
 #endif
 
 int Psm_GetCustomPartnersParams( PsmHalParam_t **params, int *cnt1 );
@@ -297,12 +287,10 @@ static int load_records(const char *file)
     unsigned int record_count = 0;
     unsigned int stored_count = 0;
 
-    PSM_CORD_DBG(("%s: begin file='%s'\n", __FUNCTION__, file ? file : "(null)"));
 
     if ((fp = fopen(file, "rb")) == NULL)
     {
         CcspTraceError(("%s: failed to open %s file \n", __FUNCTION__, file));
-        PSM_CORD_DBG(("%s: fopen failed file='%s' errno=%d\n", __FUNCTION__, file ? file : "(null)", errno));
         return -1;
     }
 
@@ -312,23 +300,16 @@ static int load_records(const char *file)
 
         if ((rec = record_parse(line)) == NULL) {
             CcspTraceError(("%s: fail to parse: %s\n", __FUNCTION__, line));
-            PSM_CORD_DBG(("%s: record_parse failed line='%s'\n", __FUNCTION__, line));
             continue;
         }
 
         record_count++;
-        PSM_CORD_DBG(("%s: parsed record[%u] name='%s' type='%s' value='%s'\n",
-            __FUNCTION__, record_count, rec->name ? rec->name : "(null)",
-            rec->type ? rec->type : "(null)", rec->value ? rec->value : ""));
 
         /* Store into CORD */
         {
             const char *val = rec->value ? rec->value : "";
             cord_rc_t   set_rc = CORD_RC_SUCCESS;
 
-            PSM_CORD_DBG(("%s: cord_store name='%s' type='%s' value='%s'\n",
-                __FUNCTION__, rec->name ? rec->name : "(null)",
-                rec->type ? rec->type : "(null)", val));
 
             if (rec->type && strcmp(rec->type, "sint") == 0) {
                 char *endptr = NULL;
@@ -361,15 +342,12 @@ static int load_records(const char *file)
             if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
                 CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
                                 __FUNCTION__, (int)set_rc, rec->name));
-                PSM_CORD_DBG(("%s: cord_set failed rc=%d name='%s'\n", __FUNCTION__, (int)set_rc, rec->name ? rec->name : "(null)"));
             } else if (set_rc == CORD_RC_PERSIST_FAILED) {
                 CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
                                 __FUNCTION__, (int)set_rc, rec->name));
                 stored_count++;
-                PSM_CORD_DBG(("%s: cord_set persist-failed-but-loaded name='%s'\n", __FUNCTION__, rec->name ? rec->name : "(null)"));
             } else {
                 stored_count++;
-                PSM_CORD_DBG(("%s: cord_set success name='%s'\n", __FUNCTION__, rec->name ? rec->name : "(null)"));
             }
         }
 
@@ -399,7 +377,6 @@ static int load_records(const char *file)
     }
 
     fclose(fp);
-    PSM_CORD_DBG(("%s: end file='%s' parsed=%u stored=%u\n", __FUNCTION__, file ? file : "(null)", record_count, stored_count));
     return 0;
 }
 
@@ -435,20 +412,14 @@ static int insert_record(struct psm_record *new, int overwrite)
     errno_t rc = -1;
     int ind = -1;
 
-    PSM_CORD_DBG(("%s: begin name='%s' type='%s' overwrite=%d value='%s'\n",
-        __FUNCTION__, new && new->name ? new->name : "(null)",
-        new && new->type ? new->type : "(null)", overwrite,
-        new && new->value ? new->value : ""));
 
     /* Check whether the key already exists in CORD */
     get_rc = cord_get(new->name, &pExisting);
-    PSM_CORD_DBG(("%s: cord_get existing rc=%d name='%s'\n", __FUNCTION__, (int)get_rc, new->name ? new->name : "(null)"));
     if (get_rc == CORD_RC_SUCCESS) {
         /* Key exists */
         cord_free_values(pExisting);
         if (!overwrite) {
             /* overwrite=0: leave existing value untouched */
-            PSM_CORD_DBG(("%s: existing value preserved name='%s'\n", __FUNCTION__, new->name ? new->name : "(null)"));
             record_free(new);
             return 0;
         }
@@ -487,14 +458,11 @@ static int insert_record(struct psm_record *new, int overwrite)
     if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
         CcspTraceError(("%s: cord_set failed rc=%d for '%s'\n",
                         __FUNCTION__, (int)set_rc, new->name));
-        PSM_CORD_DBG(("%s: cord_set failed rc=%d name='%s'\n", __FUNCTION__, (int)set_rc, new->name ? new->name : "(null)"));
         return -1;
     } else if (set_rc == CORD_RC_PERSIST_FAILED) {
         CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
                         __FUNCTION__, (int)set_rc, new->name));
-        PSM_CORD_DBG(("%s: cord_set persist-failed-but-loaded name='%s'\n", __FUNCTION__, new->name ? new->name : "(null)"));
     } else {
-        PSM_CORD_DBG(("%s: cord_set success name='%s'\n", __FUNCTION__, new->name ? new->name : "(null)"));
     }
 
     /* Also update rec_hash for in-memory lookup */
@@ -549,7 +517,6 @@ static int insert_record(struct psm_record *new, int overwrite)
     }
 
     pthread_mutex_unlock(&rec_hash_lock);
-    PSM_CORD_DBG(("%s: end name='%s'\n", __FUNCTION__, new->name ? new->name : "(null)"));
     return 0;
 }
 
@@ -632,14 +599,12 @@ static BOOL IsParameterMissed (void)
     BOOL bMissed = false;
     unsigned int k = 0;
 
-    PSM_CORD_DBG(("%s: begin total=%u\n", __FUNCTION__, (unsigned int)PSM_PARAM_TOTAL));
 
     for (k = 0; k < PSM_PARAM_TOTAL; k++)
     {
         /* Check CORD first */
         cord_value_t *pVal = NULL;
         cord_rc_t get_rc = cord_get(parm_present_table[k].name, &pVal);
-        PSM_CORD_DBG(("%s: cord_get rc=%d name='%s'\n", __FUNCTION__, (int)get_rc, parm_present_table[k].name));
         if (get_rc == CORD_RC_SUCCESS) {
             cord_free_values(pVal);
             parm_present_table[k].value = true;
@@ -681,13 +646,11 @@ static BOOL IsParameterMissed (void)
             pthread_mutex_unlock(&rec_hash_lock);
         }
     }
-    PSM_CORD_DBG(("%s: end missed=%d\n", __FUNCTION__, bMissed));
     return bMissed;
 }
  
 int merge_missing_Partner_params()
 {
-    PSM_CORD_DBG(("%s: begin\n", __FUNCTION__));
     if( IsParameterMissed())
     {
         #define BOOTSTRAP_INFO_FILE             "/opt/secure/bootstrap.json"
@@ -758,8 +721,6 @@ int merge_missing_Partner_params()
                         {
                         char* val = wc_active->valuestring;
                         if(NULL != val) {
-                        PSM_CORD_DBG(("%s: inserting partner param name='%s' value='%s'\n",
-                            __FUNCTION__, parm_present_table[m].name, val));
                         insert(parm_present_table[m].name, val);
                         }
                         }
@@ -770,7 +731,6 @@ int merge_missing_Partner_params()
         data=NULL;
         cJSON_Delete(buf);
     }
-    PSM_CORD_DBG(("%s: end\n", __FUNCTION__));
 return 0;
 }
 
@@ -794,7 +754,6 @@ static int flush_records(char **buf, size_t *size)
     unsigned int flush_count = 0;
 
    CcspTraceInfo(("-- %s : Flushing all records in hash table to buffer\n", __FUNCTION__));
-    PSM_CORD_DBG(("%s: begin\n", __FUNCTION__));
     /* 
      * save records from Hash to buffer and perform check 
      * we use dyn-array to save 'reallocate'.
@@ -874,7 +833,6 @@ out:
     off += n;
     left -= n;
     *size = off;
-    PSM_CORD_DBG(("%s: end err=%d flushed=%u final_size=%zu\n", __FUNCTION__, err, flush_count, *size));
     return err;
 }
 
@@ -884,19 +842,14 @@ static int import_custom_params(int overwrite)
     int                 cus_cnt;
     int                 i, err = -1;
 
-    PSM_CORD_DBG(("%s: begin overwrite=%d\n", __FUNCTION__, overwrite));
 
     if (PsmHal_GetCustomParams(&cus_params, &cus_cnt) != 0)
         return -1;
 
-    PSM_CORD_DBG(("%s: fetched custom count=%d\n", __FUNCTION__, cus_cnt));
 
     for (i = 0; i < cus_cnt; i++) {
         struct psm_record *rec;
 
-        PSM_CORD_DBG(("%s: custom[%d] name='%s' value='%s'\n", __FUNCTION__, i,
-            cus_params[i].name ? cus_params[i].name : "(null)",
-            cus_params[i].value ? cus_params[i].value : ""));
 
         if (!cus_params[i].name || !strlen(cus_params[i].name)) {
             CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
@@ -920,7 +873,6 @@ static int import_custom_params(int overwrite)
 out:
     if (cus_params)
         free(cus_params);
-    PSM_CORD_DBG(("%s: end overwrite=%d err=%d\n", __FUNCTION__, overwrite, err));
     return err;
 }
 
@@ -1569,18 +1521,13 @@ static int import_custom_partners_params(int overwrite)
     int                 cus_cnt1=0;
     int                 i, err = -1;
 
-    PSM_CORD_DBG(("%s: begin overwrite=%d\n", __FUNCTION__, overwrite));
 
     if (Psm_GetCustomPartnersParams(&cus_params, &cus_cnt1) != 0)
         return -1;
 
-    PSM_CORD_DBG(("%s: fetched partner custom count=%d\n", __FUNCTION__, cus_cnt1));
 
     for (i = 0; i < cus_cnt1; i++) 
 	{
-        PSM_CORD_DBG(("%s: partner_custom[%d] name='%s' value='%s'\n", __FUNCTION__, i,
-            cus_params[i].name ? cus_params[i].name : "(null)",
-            cus_params[i].value ? cus_params[i].value : ""));
         if (!cus_params[i].name || !strlen(cus_params[i].name)) {
             CcspTraceError(("%s: invalid custom partners param\n", __FUNCTION__));
             continue;
@@ -1604,7 +1551,6 @@ static int import_custom_partners_params(int overwrite)
 out:
     if (cus_params)
         free(cus_params);
-    PSM_CORD_DBG(("%s: end overwrite=%d err=%d\n", __FUNCTION__, overwrite, err));
     return err;
 }
 
@@ -1615,11 +1561,9 @@ static int merge_missing_param(const char *from, int overwrite)
     struct psm_record *rec;
     unsigned int merge_count = 0;
 
-    PSM_CORD_DBG(("%s: begin from='%s' overwrite=%d\n", __FUNCTION__, from ? from : "(null)", overwrite));
 
     if ((fp = fopen(from, "rb")) == NULL) {
         CcspTraceError(("%s: Fail to open config: %s\n", __FUNCTION__, from));
-        PSM_CORD_DBG(("%s: fopen failed from='%s' errno=%d\n", __FUNCTION__, from ? from : "(null)", errno));
         return -1;
     }
 
@@ -1627,13 +1571,9 @@ static int merge_missing_param(const char *from, int overwrite)
         if ((rec = record_parse(line)) == NULL)
             continue;
 
-        PSM_CORD_DBG(("%s: merge candidate[%u] name='%s' type='%s' value='%s'\n", __FUNCTION__,
-            merge_count + 1, rec->name ? rec->name : "(null)", rec->type ? rec->type : "(null)",
-            rec->value ? rec->value : ""));
 
         if (insert_record(rec, overwrite) != 0) {
             CcspTraceError(("%s: insert_record() fail\n", __FUNCTION__));
-            PSM_CORD_DBG(("%s: insert_record failed name='%s'\n", __FUNCTION__, rec->name ? rec->name : "(null)"));
             record_free(rec);
             fclose(fp);
             return -1;
@@ -1643,7 +1583,6 @@ static int merge_missing_param(const char *from, int overwrite)
     }
 
     fclose(fp);
-    PSM_CORD_DBG(("%s: end merged=%u from='%s'\n", __FUNCTION__, merge_count, from ? from : "(null)"));
     return 0;
 }
 
@@ -1703,8 +1642,6 @@ ssp_CfmReadCurConfig
      */
     CcspTraceInfo(("ssp_CfmReadCurConfig begins\n"));    
     snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->CurFileName);
-    PSM_CORD_DBG(("%s: begin cur='%s' bak='%s%s' def='%s%s'\n", __FUNCTION__, path,
-        pProp->SysFilePath, pProp->BakFileName, pProp->SysFilePath, pProp->DefFileName));
 again:
     /* load config file to Hash for fast merging and import */
     {
@@ -1716,60 +1653,44 @@ again:
                     + (xml_t1.tv_usec - xml_t0.tv_usec) / 1000L;
         CcspTraceInfo(("%s: XML load '%s' %s time=%ldms\n",
                         __FUNCTION__, path, (load_ret == 0 ? "OK" : "FAILED"), xml_ms));
-        PSM_CORD_DBG(("%s: load_records path='%s' ret=%d time_ms=%ld usg_bak=%d\n",
-            __FUNCTION__, path, load_ret, xml_ms, usg_bak));
         if (load_ret != 0) {
             CcspTraceError(("%s: Fail to load config file: %s\n", __FUNCTION__, path));
             if (!usg_bak) {
                 snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->BakFileName);
                 usg_bak = 1;
-                PSM_CORD_DBG(("%s: retrying backup path='%s'\n", __FUNCTION__, path));
                 goto again;
             }
         }
     }
 
     /* import customer params without overwrite */
-    if (import_custom_params(0) != 0){
+    if (import_custom_params(0) != 0)
         CcspTraceError(("%s: Fail to import custom params\n", __FUNCTION__));
-    } else {
-        PSM_CORD_DBG(("%s: import_custom_params overwrite=0 complete\n", __FUNCTION__));
-    }
 
     /* merge missing param from default config */
     snprintf(path, sizeof(path), "%s%s", pProp->SysFilePath, pProp->DefFileName);
     if (merge_missing_param(path, 0) != 0) {
         CcspTraceError(("%s: Fail to merge def config\n", __FUNCTION__));
-    } else {
-        PSM_CORD_DBG(("%s: merge_missing_param complete from='%s'\n", __FUNCTION__, path));
     }
 
     /* import customer params with overwrite */
-    if (import_custom_partners_params(1) != 0){
+    if (import_custom_partners_params(1) != 0)
         CcspTraceInfo(("%s: Fail to import custom partners params\n", __FUNCTION__));
-    } else {
-        PSM_CORD_DBG(("%s: import_custom_partners_params overwrite=1 complete\n", __FUNCTION__));
-    }
     
      if( merge_missing_Partner_params() !=0)
      {
          CcspTraceInfo(("%s: merge_missing_Partner_params failed\n", __FUNCTION__));
-     } else {
-         PSM_CORD_DBG(("%s: merge_missing_Partner_params complete\n", __FUNCTION__));
      }
 
     /* flush merged records to buffer */
     if (flush_records((char **)ppCfgBuffer,(size_t *) pulCfgSize) != 0) {
         free_records();
         CcspTraceInfo((" ssp_CfmReadCurConfig-flush_records((char **)ppCfgBuffer, pulCfgSize) != 0\n"));    
-        PSM_CORD_DBG(("%s: flush_records failed\n", __FUNCTION__));
         return ANSC_STATUS_FAILURE;
     }
-    PSM_CORD_DBG(("%s: flush_records success size=%lu buffer=%p\n", __FUNCTION__, pulCfgSize ? *pulCfgSize : 0, ppCfgBuffer ? *ppCfgBuffer : NULL));
     //CcspTraceInfo(("ssp_CfmReadCurConfig ends\n"));    
     {
         ANSC_STATUS save_status = ssp_CfmSaveCurConfig(hThisObject, *ppCfgBuffer, *pulCfgSize);
-        PSM_CORD_DBG(("%s: end save_status=%lu\n", __FUNCTION__, (unsigned long)save_status));
         return save_status;
     }
 }
@@ -2493,12 +2414,10 @@ ssp_CfmSaveCurConfig
     ANSC_HANDLE                     pFile;
 
     CcspTraceInfo(("%s: called\n", __FUNCTION__));
-    PSM_CORD_DBG(("%s: begin cfg_size=%lu cfg_buffer=%p\n", __FUNCTION__, (unsigned long)ulCfgSize, pCfgBuffer));
 
     /* save current to backup config */
     snprintf(curPath, sizeof(curPath), "%s%s", pProp->SysFilePath, pProp->CurFileName);
     snprintf(bakPath, sizeof(bakPath), "%s%s", pProp->SysFilePath, pProp->BakFileName);
-    PSM_CORD_DBG(("%s: curPath='%s' bakPath='%s'\n", __FUNCTION__, curPath, bakPath));
     //CcspTraceInfo(("ssp_CfmSaveCurConfig begins\n"));    
 
 
@@ -2507,7 +2426,6 @@ ssp_CfmSaveCurConfig
     {
         PsmHalDbg(("%s: fail open current config\n", __FUNCTION__));
         CcspTraceInfo(("ssp_CfmSaveCurConfig -> fail open current config\n"));           
-        PSM_CORD_DBG(("%s: AnscOpenFile failed curPath='%s'\n", __FUNCTION__, curPath));
         return ANSC_STATUS_FAILURE;
     }
 
@@ -2515,7 +2433,6 @@ ssp_CfmSaveCurConfig
     {
         AnscCloseFile(pFile);
      	CcspTraceInfo(("ssp_CfmSaveCurConfig -> AnscWriteFile(pFile, pCfgBuffer, &ulCfgSize) != ANSC_STATUS_SUCCESS\n"));           
-        PSM_CORD_DBG(("%s: AnscWriteFile failed curPath='%s'\n", __FUNCTION__, curPath));
         return ANSC_STATUS_FAILURE;
     }
 
@@ -2525,7 +2442,6 @@ ssp_CfmSaveCurConfig
 
     if ( backup_file(bakPath,curPath) != 0)
         CcspTraceError(("%s: fail to backup current config\n", __FUNCTION__)); 
-    PSM_CORD_DBG(("%s: end success curPath='%s' bakPath='%s'\n", __FUNCTION__, curPath, bakPath));
     //CcspTraceInfo(("ssp_CfmSaveCurConfig ends\n"));    
     return ANSC_STATUS_SUCCESS;
 }

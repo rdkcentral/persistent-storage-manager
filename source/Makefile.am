@@ -22,7 +22,7 @@ else
 
 ACLOCAL_AMFLAGS = -I m4
 
-bin_PROGRAMS = PsmSsp
+bin_PROGRAMS = PsmSsp psm_api_perf_test
 
 PsmSsp_CPPFLAGS = \
     -I$(top_srcdir)/source/DslhManagementServer \
@@ -50,9 +50,22 @@ PsmSsp_SOURCES = \
     PsmSysRegistry/psm_sysro_control.c
 
 PsmSsp_LDFLAGS  = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lcjson -lsecure_wrapper -lpthread
+
+psm_api_perf_test_CPPFLAGS = \
+    -I$(top_srcdir)/source/include \
+    -I$(PKG_CONFIG_SYSROOT_DIR)$(includedir)/ccsp
+
+psm_api_perf_test_CFLAGS  = $(SYSTEMD_CFLAGS)
+
+psm_api_perf_test_SOURCES = Ssp/psm_api_perf_test.c
+
+psm_api_perf_test_LDFLAGS = -lccsp_common -lpthread
+
 if CORD_ENABLED
 PsmSsp_CFLAGS  += -DCORD_ENABLED
 PsmSsp_LDFLAGS  += -lcord
+psm_api_perf_test_CFLAGS  += -DCORD_ENABLED
+psm_api_perf_test_LDFLAGS += -lcord
 else
 PsmSsp_SOURCES += Ssp/ssp_rbus.c \
                   Ssp/ssp_dbus.c
