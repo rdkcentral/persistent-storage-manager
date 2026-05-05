@@ -289,7 +289,7 @@ static int getParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
                     rbusProperty_Release(out_prop);
                     if(NULL == strstr(val[i]->parameterName, "Passphrase"))
                     {
-                        CcspTraceInfo(("%s ParammeterName[%d]-%s, ParameterValue:%s\n  ",__func__,i, val[i]->parameterName, val[i]->parameterValue));
+                        CcspTraceDebug(("%s ParammeterName[%d]-%s, ParameterValue:%s\n  ",__func__,i, val[i]->parameterName, val[i]->parameterValue));
                     }
                     else
                     {
@@ -357,7 +357,7 @@ static int getParameterNames_rbus(rbusObject_t inParams, rbusObject_t outParams)
             rbusObject_SetProperty(outParams, out_prop);
             rbusProperty_Release(out_prop);
             rbusValue_Release(writableValue);
-            CcspTraceInfo(("%s-ParameterName[%d]-%s\n", __func__, i, val[i]->parameterName));
+            CcspTraceDebug(("%s-ParameterName[%d]-%s\n", __func__, i, val[i]->parameterName));
             if(val[i]->parameterName)
                 AnscFreeMemory(val[i]->parameterName);
             AnscFreeMemory(val[i]);
@@ -459,6 +459,9 @@ int PsmRbusInit()
     rbusHandle_t handle;
     int rc = RBUS_ERROR_SUCCESS;
     char *component_name = "rbusPsmSsp";
+
+    /* Suppress rbus DEBUG logs to avoid repetitive "calling methodHandler" messages */
+    rbus_setLogLevel(RBUS_LOG_WARN);
 
     rc = rbus_open(&handle, component_name);
     if(rc != RBUS_ERROR_SUCCESS)
