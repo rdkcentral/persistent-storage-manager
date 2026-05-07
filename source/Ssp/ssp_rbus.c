@@ -155,6 +155,7 @@ static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     rbusValueType_t type;
     int param_size = 0;
     char *parameterName, *parameterValue = NULL;
+    
     if ( pPsmSysRegistry == NULL )
     {
         CcspTraceError(("%s - pPsmSysRegistry is NULL\n",__func__));
@@ -176,6 +177,7 @@ static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     parameterValue = rbusValue_ToString(value, NULL, 0);
     parameterValStruct_t *val = NULL;
     val = AnscAllocateMemory(sizeof(parameterValStruct_t));
+
     if(val == NULL)
     {
         CcspTraceInfo(("Memory Allocation failed - %s : %d\n", __FUNCTION__, __LINE__));
@@ -194,12 +196,22 @@ static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
             CcspTraceInfo(("Memory Allocation failed - %s : %d\n", __FUNCTION__, __LINE__));
             ret = RBUS_ERROR_BUS_ERROR;
         }
-        strcpy_s(val->parameterName, paramNameLen,  parameterName);
 
-       /* Copy the Value */
+        // Fix for Coverity CID : 420196 : Check the return value of strcpy_s
+        if (strcpy_s(val->parameterName, paramNameLen, parameterName) != 0) {
+            CcspTraceInfo(("strcpy_s failed - %s : %d\n", __FUNCTION__, __LINE__));
+            ret = RBUS_ERROR_BUS_ERROR;
+        }
+
+        /* Copy the Value */
         val->parameterValue = AnscAllocateMemory(paramValLen);
         memset(val->parameterValue, 0, paramValLen);
-        strcpy_s(val->parameterValue, paramValLen,  parameterValue);
+
+        // Fix for Coverity CID :420196 : Check the return value of strcpy_s
+        if (strcpy_s(val->parameterValue, paramValLen, parameterValue) != 0) {
+            CcspTraceInfo(("strcpy_s failed - %s : %d\n", __FUNCTION__, __LINE__));
+            ret = RBUS_ERROR_BUS_ERROR;
+        }
 
         /* Find the matching ccsp_type */
         rbus_type_to_ccsp_type(type, &val->type);
@@ -209,13 +221,14 @@ static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
             returnStatus = setParameterValues(0, 0, val, 1, 0, NULL, NULL);
             CcspTraceDebug(("%s Add entry:  param : %s , val : %s %s , return %d \n", __func__,((returnStatus != CCSP_SUCCESS)? "failed" : "success"), val->parameterName, val->parameterValue, returnStatus));
         }
+
         if (val->parameterName)
         {
-                AnscFreeMemory(val->parameterName);
+            AnscFreeMemory(val->parameterName);
         }
         if (val->parameterValue)
         {
-                AnscFreeMemory(val->parameterValue);
+            AnscFreeMemory(val->parameterValue);
         }
 
         AnscFreeMemory(val);
@@ -375,6 +388,7 @@ static int delParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     rbusProperty_t prop;
     int i = 0;
     int param_size = 0;
+
     if ( pPsmSysRegistry == NULL )
     {
         CcspTraceError(("%s - pPsmSysRegistry is NULL\n",__func__));
@@ -384,21 +398,30 @@ static int delParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     prop = rbusObject_GetProperties(inParams);
     while(prop)
     {
-       param_size++;
+        param_size++;
         prop = rbusProperty_GetNext(prop);
     }
     prop = rbusObject_GetProperties(inParams);
+
     /* Copy Parameter Name */
     for (i = 0; i < param_size; i++)
     {
         parameterAttributeStruct_t *parameterAttribute = 0;
         parameterAttribute = AnscAllocateMemory(1*sizeof(parameterAttributeStruct_t));
         memset(parameterAttribute, 0, 1*sizeof(parameterAttributeStruct_t));
+
         unsigned int ParameterNameLen = strlen(rbusProperty_GetName(prop))+1;
         parameterAttribute->parameterName = AnscAllocateMemory(ParameterNameLen);
-        strcpy_s(parameterAttribute->parameterName, ParameterNameLen, rbusProperty_GetName(prop));
 
-        /*Set Parameter Attributes*/
+        // Fix for Coverity CID: 420197: Check the return value of strcpy_s
+        if (strcpy_s(parameterAttribute->parameterName, ParameterNameLen, rbusProperty_GetName(prop)) != 0) {
+            CcspTraceInfo(("strcpy_s failed - %s : %d\n", __FUNCTION__, __LINE__));
+            rc = RBUS_ERROR_BUS_ERROR;
+            AnscFreeMemory(parameterAttribute);
+            break; // Exit the loop in case of error
+        }
+
+        /* Set Parameter Attributes */
         parameterAttribute->notificationChanged = 0;
         parameterAttribute->notification = 0;
         parameterAttribute->access = 0;
@@ -416,9 +439,11 @@ static int delParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
             CcspTraceError(("%s Failed to delete entry: %s \n", __func__,parameterAttribute->parameterName));
             setOutparams(outParams,parameterAttribute->parameterName,false);
         }
+
         AnscFreeMemory(parameterAttribute);
         prop = rbusProperty_GetNext(prop);
     }
+
     return rc;
 }
 

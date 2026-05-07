@@ -560,7 +560,16 @@ int merge_missing_Partner_params()
             {
                 CcspTraceInfo(("data is not NULL %d\n",len));
                 memset( data, 0, ( sizeof(char) * (len + 1) ));
-                fread( data, 1, len, fp );
+                // Fix for CID 190387: Check the number of bytes read by fread
+                size_t bytesRead = fread(data, 1, len, fp);
+                if ((size_t)bytesRead != (size_t)len)
+                {
+                    // If fread doesn't read the expected number of bytes, handle the error
+                    CcspTraceInfo(("Error reading file %s: expected %d bytes, but read %zu bytes\n", BOOTSTRAP_INFO_FILE, len, bytesRead));
+                    free(data);
+                    fclose(fp);
+                    return -1;
+                }
             }
             else
             {
@@ -584,6 +593,10 @@ int merge_missing_Partner_params()
         //CcspTraceInfo(("IsEntryMissed PartnerID  %s \n", PartnerID));
         cJSON* wc_url=NULL;
         unsigned int m;
+
+        // CID 559731: Data race condition (MISSING_LOCK)
+       // Acquire the lock before accessing parm_present_table
+        pthread_mutex_lock(&rec_hash_lock);
         for(m=0; m< PSM_PARAM_TOTAL; m++ )
         {
             if( parm_present_table[m].value == false )
@@ -606,6 +619,8 @@ int merge_missing_Partner_params()
                     }
                 }
         }
+       // CID 559731:Release the lock after all accesses to parm_present_table are complete
+        pthread_mutex_unlock(&rec_hash_lock);
         free(data);
         data=NULL;
         cJSON_Delete(buf);
@@ -724,7 +739,9 @@ static int import_custom_params(int overwrite)
         return -1;
 
     for (i = 0; i < cus_cnt; i++) {
-        if (!cus_params[i].name || !strlen(cus_params[i].name)) {
+        //CID 67111: Ensuring name is not NULL and not an empty string
+       //CID 65264: Simplified the check for NULL and empty string
+        if (cus_params[i].name == NULL || cus_params[i].name[0] == '\0') {
             CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
             continue;
         }
@@ -1953,8 +1970,10 @@ static ANSC_STATUS NodeGetRecord (PANSC_XML_DOM_NODE_OBJECT node, PsmRecord_t *r
     /* value */
     size = sizeof(rec->value) - 1;
     if (node->GetDataString(node, NULL, rec->value, &size) != ANSC_STATUS_SUCCESS)
+    {//Fix for CID:57012 Structurally dead code
         CcspTraceInfo(("NodeGetRecord -> node->GetDataString(node, NULL, rec->value, &size) != ANSC_STATUS_SUCCESS\n"));    
         return ANSC_STATUS_FAILURE;
+    }
     rec->value[size] = '\0';
 
     return ANSC_STATUS_SUCCESS;
@@ -1965,8 +1984,10 @@ static ANSC_STATUS AddRecToXml (const PsmRecord_t *rec, PANSC_XML_DOM_NODE_OBJEC
     PANSC_XML_DOM_NODE_OBJECT node;
 
     if ((node = xml->AddChildByName(xml, ELEM_RECORD)) == NULL)
+    {//CID 68537: Structurally dead code
     	CcspTraceInfo(("AddRecToXml-> node = xml->AddChildByName(xml, ELEM_RECORD) \n"));    
         return ANSC_STATUS_FAILURE;
+    }
 
     if (RecordSetNode(rec, node) != ANSC_STATUS_SUCCESS)
     {
@@ -1989,7 +2010,9 @@ static ANSC_STATUS XmlToBuffer (PANSC_XML_DOM_NODE_OBJECT xml, char **buf, ULONG
             || xml->Encode(xml, (PVOID)newBuf, &newSize) != ANSC_STATUS_SUCCESS)
     {
         if (newBuf)
+        {// CID :57685 Nesting level does not match indentation
             AnscFreeMemory(newBuf);
+        }
             CcspTraceInfo(("XmlToBuffer ends->newBuf"));    
         return ANSC_STATUS_FAILURE;
     }
@@ -2006,12 +2029,13 @@ static ANSC_STATUS XmlToFile (PANSC_XML_DOM_NODE_OBJECT xml, const char *file)
     ANSC_HANDLE pFile;
 //    CcspTraceInfo(("XmlToFile begins\n"));    
     if (XmlToBuffer(xml, &buf, &size) != ANSC_STATUS_SUCCESS) 
+    { //Fix for CID:64065 Structurally dead code
      	CcspTraceInfo(("XmlToFile -> XmlToBuffer(xml, &buf, &size) != ANSC_STATUS_SUCCESS\n"));
         /*Coverity Fix CID:67400 RESOURCE_LEAK */
         if( buf != NULL)
            AnscFreeMemory(buf);
         return ANSC_STATUS_FAILURE;
-    
+    }
 
     if ((pFile = AnscOpenFile((char *)file, 
                     ANSC_FILE_TYPE_RDWR, ANSC_FILE_TYPE_RDWR)) == NULL)
@@ -2077,7 +2101,6 @@ static PANSC_XML_DOM_NODE_OBJECT ReadCfgXmlWithCustom (const char *path, int ove
     PsmHalParam_t               *cusParams = NULL;
     int                         cusCnt, i;
     char                        *buf = NULL;
-    int                         success = 0;
     int                         missing;
     ULONG                       size;
     errno_t                     rc = -1;
@@ -2132,14 +2155,10 @@ static PANSC_XML_DOM_NODE_OBJECT ReadCfgXmlWithCustom (const char *path, int ove
         }
     }
 
-    success = 1;
 
 done:
-    if (!success && root)
-    {
-        root->Remove(root);
-        root = NULL;
-    }
+    //CID: 5337 logically dead code
+    //Removed the logically dead code because the condition if (!success && root) will never be true when root is NULL
     if (buf)
         AnscFreeMemory(buf);
     if (cusParams)
