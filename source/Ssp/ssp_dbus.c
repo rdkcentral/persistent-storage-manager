@@ -784,6 +784,7 @@ int  getParameterValues(
                                 AnscFreeMemory(pParameterValue->val->parameterName);
                                 AnscFreeMemory(pParameterValue->val);
                                 AnscFreeMemory(pParameterValue);
+                                pParameterValue = NULL;  // Set to NULL after freeing
                                 ret = CCSP_FAILURE;
                                 goto EXIT;
                             }
@@ -795,6 +796,7 @@ int  getParameterValues(
                             AnscFreeMemory(pParameterValue->val->parameterName);
                             AnscFreeMemory(pParameterValue->val);
                             AnscFreeMemory(pParameterValue);
+                            pParameterValue = NULL;  // Set to NULL after freeing
                         }
                     }
                     else
@@ -810,6 +812,7 @@ int  getParameterValues(
                 else
                 {
                     AnscFreeMemory(pParameterValue);
+                    pParameterValue = NULL;  // Set to NULL after freeing
                 }
             }
         }
@@ -853,15 +856,52 @@ int  getParameterValues(
 
 EXIT:
 
-    if ( hSysRoot )
+{
+    /* FIX: CID: 70045 Resource_leak : cleanup any remaining nodes in list to avoid memory leak */
+    PSINGLE_LINK_ENTRY pSLinkEntry = NULL;
+    while ((pSLinkEntry = AnscSListPopEntry(&ParameterValueList)) != NULL)
     {
-          // CcspTraceInfo((" getParameterValues -hSysRoot\n"));
-        pSysIraIf->CloseFolder(pSysIraIf->hOwnerContext, hSysRoot);
+        pParameterValue = ACCESS_CONTAINER(pSLinkEntry, PARAMETER_VALUE, Linkage);
+
+        if (pParameterValue)
+        {
+            if (pParameterValue->val)
+            {
+                if (pParameterValue->val->parameterName)
+                {
+                    AnscFreeMemory(pParameterValue->val->parameterName);
+                    pParameterValue->val->parameterName = NULL;
+                }
+
+                if (pParameterValue->val->parameterValue)
+                {
+                    AnscFreeMemory(pParameterValue->val->parameterValue);
+                    pParameterValue->val->parameterValue = NULL;
+                }
+
+                AnscFreeMemory(pParameterValue->val);
+                pParameterValue->val = NULL;
+            }
+            AnscFreeMemory(pParameterValue);
+            pParameterValue = NULL;
+        }
     }
 
-    pSysIraIf->RelThreadLock(pSysIraIf->hOwnerContext);
-     //  CcspTraceInfo((" getParameterValues exit\n"));
-    return ret;
+    if (hSysRoot)
+    {
+        // CcspTraceInfo((" getParameterValues -hSysRoot\n"));
+        pSysIraIf->CloseFolder(pSysIraIf->hOwnerContext, hSysRoot);
+        hSysRoot = NULL;
+    }
+
+    /* Ensure the IRA thread lock is released exactly once */
+    if (pSysIraIf)
+    {
+        pSysIraIf->RelThreadLock(pSysIraIf->hOwnerContext);
+    }
+}
+
+return ret;
 }
 
 
