@@ -26,6 +26,17 @@
         }
       },
       {
+        "name": "rdk_logger",
+        "repo": "https://github.com/rdkcentral/rdk_logger.git",
+        "branch": "main",
+        "header_paths": [
+          { "source": "include", "destination": "$HOME/usr/include/rdkb" }
+        ],
+        "build": {
+          "type": "autotools"
+         }
+      },
+      {
         "name": "libSyscallWrapper",
         "repo": "https://github.com/rdkcentral/libSyscallWrapper.git",
         "branch": "develop",
