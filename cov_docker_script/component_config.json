@@ -141,6 +141,14 @@
     "include_path": "$HOME/usr/include/rdkb/",
     "lib_output_path": "$HOME/usr/local/lib/",
 
+    "header_sources": [
+      {
+        "_comment": "factory_info_api.h ships with the Technicolor factory-nvram platform SDK and is not in any public repo. A stub with the required declarations is provided for the Coverity/native build.",
+        "source": "cov_docker_script/stubs/factory_info_api.h",
+        "destination": "$HOME/usr/include/rdkb"
+      }
+    ],
+
     "build": {
       "type": "autotools",
       "configure_options_file": "cov_docker_script/configure_options.conf"
