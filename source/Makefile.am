@@ -26,7 +26,8 @@ bin_PROGRAMS = PsmSsp
 
 PsmSsp_CPPFLAGS = \
     -I$(top_srcdir)/source/DslhManagementServer \
-    -I$(top_srcdir)/source/include
+    -I$(top_srcdir)/source/include \
+    -I$(top_srcdir)/cov_docker_script/stubs
 
 PsmSsp_CFLAGS = $(SYSTEMD_CFLAGS)
 
