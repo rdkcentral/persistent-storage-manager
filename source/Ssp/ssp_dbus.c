@@ -288,7 +288,7 @@ ANSC_STATUS getCommParam(
                       free_commParam_pointers(pParameterValue);
                       return ANSC_STATUS_FAILURE;
                 }
-		sprintf(pParameterValue->val->parameterValue, "%d", CCSP_COMPONENT_VERSION_PSM);
+		sprintf(pParameterValue->val->parameterValue, "%d %s", CCSP_COMPONENT_VERSION_PSM);
 	    }
 	    else if(index == PSM_AUTHOR)
 	    {

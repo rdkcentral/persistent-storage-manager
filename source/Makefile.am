@@ -28,7 +28,7 @@ PsmSsp_CPPFLAGS = \
     -I$(top_srcdir)/source/DslhManagementServer \
     -I$(top_srcdir)/source/include
 
-PsmSsp_CFLAGS = $(SYSTEMD_CFLAGS)
+PsmSsp_CFLAGS = $(SYSTEMD_CFLAGS) -Wno-error=format
 
 PsmSsp_SOURCES = \
     Ssp/ssp_main.c \
