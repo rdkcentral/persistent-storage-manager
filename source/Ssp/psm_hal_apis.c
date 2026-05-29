@@ -823,3 +823,45 @@ PsmHal_RestoreFactoryDefaults
 {
     return  0;
 }
+
+/*
+ * COVERITY TEST FUNCTION - DO NOT CALL
+ * This function contains intentional defects for Coverity static analysis testing.
+ * It is never called and has no impact on functionality.
+ */
+static void coverity_test_issues_dummy(void)
+{
+    /* HIGH SEVERITY: Null pointer dereference */
+    char *null_ptr = NULL;
+    *null_ptr = 'x';  /* CID: NULL_RETURNS - Dereferencing null pointer */
+
+    /* HIGH SEVERITY: Buffer overflow */
+    char small_buffer[10];
+    strcpy(small_buffer, "This string is way too long for the buffer");  /* CID: BUFFER_SIZE */
+
+    /* HIGH SEVERITY: Use after free */
+    char *freed_ptr = (char *)malloc(100);
+    free(freed_ptr);
+    freed_ptr[0] = 'y';  /* CID: USE_AFTER_FREE */
+
+    /* MEDIUM SEVERITY: Resource leak - memory not freed */
+    char *leaked_memory = (char *)malloc(256);
+    if (leaked_memory != NULL) {
+        leaked_memory[0] = 'z';
+        /* CID: RESOURCE_LEAK - memory allocated but never freed */
+    }
+
+    /* MEDIUM SEVERITY: Uninitialized variable */
+    int uninitialized_var;
+    int result = uninitialized_var + 10;  /* CID: UNINIT - Using uninitialized variable */
+    (void)result;
+
+    /* LOW SEVERITY: Dead code */
+    if (0) {
+        printf("This code is never executed\n");  /* CID: DEADCODE */
+    }
+
+    /* LOW SEVERITY: Unused variable */
+    int unused_variable = 42;  /* CID: UNUSED_VALUE */
+    (void)unused_variable;
+}
