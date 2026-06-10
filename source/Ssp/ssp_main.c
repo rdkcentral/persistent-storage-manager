@@ -401,6 +401,9 @@ int main(int argc, char* argv[])
             close(psm_fd);
         }
     }
+#ifdef CORD_ENABLED
+    cord_set_bool("psm_initialized", true, CORD_FLAG_PERSIST_ASYNC);
+#endif
     if(!blocklist_ret){
         update_process_caps(&appcaps);
         read_capability(&appcaps);

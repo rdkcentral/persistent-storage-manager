@@ -285,8 +285,18 @@ static int load_records(const char *file)
     char line[4096];
     struct psm_record *rec;
     unsigned int record_count = 0;
-    
-
+#ifdef CORD_ENABLED
+    bool skip_cord_set = false;
+    {
+        bool psm_init = false;
+        cord_rc_t get_rc = cord_get_bool("psm_initialized", &psm_init);
+        if (get_rc == CORD_RC_SUCCESS && psm_init)
+        {
+            CcspTraceInfo(("%s: psm_initialized is true in CORD, skipping cord_set calls\n", __FUNCTION__));
+            skip_cord_set = true;
+        }
+    }
+#endif /* CORD_ENABLED */
 
     if ((fp = fopen(file, "rb")) == NULL)
     {
@@ -307,7 +317,7 @@ static int load_records(const char *file)
 
 #ifdef CORD_ENABLED
         /* Store into CORD */
-        {
+        if (!skip_cord_set) {
             const char *val = rec->value ? rec->value : "";
             cord_rc_t   set_rc = CORD_RC_SUCCESS;
             unsigned int stored_count = 0;
@@ -321,7 +331,7 @@ static int load_records(const char *file)
                     CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
                                     __FUNCTION__, rec->name, val));
                 } else {
-                    set_rc = cord_set_i32(rec->name, (int32_t)v, CORD_FLAG_PERSIST_SYNC);
+                    set_rc = cord_set_i32(rec->name, (int32_t)v, CORD_FLAG_PERSIST_ASYNC);
                 }
             } else if (rec->type && strcmp(rec->type, "uint") == 0) {
                 char *endptr = NULL;
@@ -331,14 +341,14 @@ static int load_records(const char *file)
                     CcspTraceError(("%s: uint parse fail for '%s'='%s'\n",
                                     __FUNCTION__, rec->name, val));
                 } else {
-                    set_rc = cord_set_u32(rec->name, (uint32_t)v, CORD_FLAG_PERSIST_SYNC);
+                    set_rc = cord_set_u32(rec->name, (uint32_t)v, CORD_FLAG_PERSIST_ASYNC);
                 }
             } else if (rec->type && strcmp(rec->type, "bool") == 0) {
                 bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
-                set_rc = cord_set_bool(rec->name, bval, CORD_FLAG_PERSIST_SYNC);
+                set_rc = cord_set_bool(rec->name, bval, CORD_FLAG_PERSIST_ASYNC);
             } else {
                 /* astr, bstr, hcxt, enum, unknown — store as string */
-                set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_SYNC);
+                set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_ASYNC);
             }
 
             if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
@@ -413,6 +423,17 @@ static int insert_record(struct psm_record *new, int overwrite)
 
 #ifdef CORD_ENABLED
     {
+        bool skip_cord_set = false;
+        {
+            bool psm_init = false;
+            cord_rc_t get_rc = cord_get_bool("psm_initialized", &psm_init);
+            if (get_rc == CORD_RC_SUCCESS && psm_init)
+            {
+                CcspTraceInfo(("%s: psm_initialized is true in CORD, skipping cord_set for '%s'\n", __FUNCTION__, new->name));
+                skip_cord_set = true;
+            }
+        }
+        if (!skip_cord_set) {
         cord_value_t *pExisting = NULL;
         cord_rc_t    get_rc;
         cord_rc_t    set_rc = CORD_RC_SUCCESS;
@@ -441,7 +462,7 @@ static int insert_record(struct psm_record *new, int overwrite)
                                 __FUNCTION__, new->name, val));
                 return -1;
             }
-            set_rc = cord_set_i32(new->name, (int32_t)v, CORD_FLAG_PERSIST_SYNC);
+            set_rc = cord_set_i32(new->name, (int32_t)v, CORD_FLAG_PERSIST_ASYNC);
         } else if (new->type && strcmp(new->type, "uint") == 0) {
             char *endptr = NULL;
             errno = 0;
@@ -451,13 +472,13 @@ static int insert_record(struct psm_record *new, int overwrite)
                                 __FUNCTION__, new->name, val));
                 return -1;
             }
-            set_rc = cord_set_u32(new->name, (uint32_t)v, CORD_FLAG_PERSIST_SYNC);
+            set_rc = cord_set_u32(new->name, (uint32_t)v, CORD_FLAG_PERSIST_ASYNC);
         } else if (new->type && strcmp(new->type, "bool") == 0) {
             bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
-            set_rc = cord_set_bool(new->name, bval, CORD_FLAG_PERSIST_SYNC);
+            set_rc = cord_set_bool(new->name, bval, CORD_FLAG_PERSIST_ASYNC);
         } else {
             /* astr, bstr, hcxt, enum, unknown — store as string */
-            set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_SYNC);
+            set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_ASYNC);
         }
 
         if (set_rc != CORD_RC_SUCCESS && set_rc != CORD_RC_PERSIST_FAILED) {
@@ -468,6 +489,7 @@ static int insert_record(struct psm_record *new, int overwrite)
             CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
                             __FUNCTION__, (int)set_rc, new->name));
         }
+        } /* if (!skip_cord_set) */
     }
 #endif /* CORD_ENABLED */
 
