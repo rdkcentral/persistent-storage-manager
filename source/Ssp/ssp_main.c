@@ -401,8 +401,13 @@ int main(int argc, char* argv[])
             close(psm_fd);
         }
     }
+    
 #ifdef CORD_ENABLED
     cord_set_bool("psm_initialized", true, CORD_FLAG_PERSIST_ASYNC);
+    /* PSM is now fully initialised and ready to serve requests — set Health to Green.
+     * dmcli eRT getv com.cisco.spvtg.ccsp.psm.Health routes through
+     * PSM_Get_Record_Value2() -> cord_get() and will read this value directly. */
+    cord_set_string("com.cisco.spvtg.ccsp.psm.Health", "Green", CORD_FLAG_PERSIST_ASYNC);
 #endif
     if(!blocklist_ret){
         update_process_caps(&appcaps);
@@ -525,6 +530,8 @@ int  cmd_dispatch(int  command)
                             CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : cord_open failed: %d\n", ret));
                             return -1;
                         }
+                        /* Signal that PSM is starting but not yet ready to serve requests */
+                        cord_set_string("com.cisco.spvtg.ccsp.psm.Health", "Red", CORD_FLAG_PERSIST_ASYNC);
                         pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
 #else
                         pPsmSysRegistry->Engage     ((ANSC_HANDLE)pPsmSysRegistry);
