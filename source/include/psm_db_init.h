@@ -28,7 +28,7 @@
  * Can be overridden at build time with -DPSM_DB_PATH=\"...\"
  */
 #ifndef PSM_DB_PATH
-#define PSM_DB_PATH   "/nvram/psm.db"
+#define PSM_DB_PATH   "/tmp/psm.db"
 #endif
 
 /**
