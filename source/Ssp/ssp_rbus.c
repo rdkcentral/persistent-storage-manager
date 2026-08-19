@@ -289,7 +289,7 @@ static int getParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
                     rbusProperty_Release(out_prop);
                     if(NULL == strstr(val[i]->parameterName, "Passphrase"))
                     {
-                        CcspTraceInfo(("%s ParammeterName[%d]-%s, ParameterValue:%s\n  ",__func__,i, val[i]->parameterName, val[i]->parameterValue));
+                        CcspTraceDebug(("%s ParammeterName[%d]-%s, ParameterValue:%s\n  ",__func__,i, val[i]->parameterName, val[i]->parameterValue));
                     }
                     else
                     {
