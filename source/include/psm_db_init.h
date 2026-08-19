@@ -42,6 +42,14 @@
 #endif
 
 /**
+ * @brief Persistent XML backup read by both old and new images on boot.
+ *        Can be overridden at build time with -DPSM_BAK_XML_PATH=\"...\".
+ */
+#ifndef PSM_BAK_XML_PATH
+#define PSM_BAK_XML_PATH  "/nvram/bbhm_bak_cfg.xml"
+#endif
+
+/**
  * @brief Initialize the PSM SQLite database.
  *
  * Must be called during PSM daemon startup, before sd_notify(READY=1) and
@@ -57,5 +65,18 @@
  * @return  0 on success, -1 on unrecoverable failure.
  */
 int psm_db_init(void);
+
+/**
+ * @brief Export all records from the SQLite DB to a PSM XML backup file.
+ *
+ * Called after psm_db_init() so that any values written by Set operations
+ * during the previous session (which went to SQLite only) are flushed to
+ * the persistent XML backup before the oneshot daemon exits.  This keeps
+ * the backup in sync for downgrade compatibility.
+ *
+ * @param xml_path  Destination file path (e.g. PSM_BAK_XML_PATH).
+ * @return  0 on success, -1 on failure (non-fatal; logged only).
+ */
+int psm_db_export_to_xml(const char *xml_path);
 
 #endif /* PSM_DB_INIT_H */

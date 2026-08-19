@@ -499,6 +499,11 @@ int  cmd_dispatch(int  command)
                             return -1;
                         }
 
+                        /* Sync DB → XML so the backup reflects any runtime Sets
+                         * from the previous session; required for smooth downgrade. */
+                        if (psm_db_export_to_xml(PSM_BAK_XML_PATH) != 0)
+                            CcspTraceWarning(("PSM: DB export to XML failed; downgrade may lose recent Set values\n"));
+
                         ret = PsmDbusInit();
                         if(ret != 0)
                            return -1;

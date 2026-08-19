@@ -424,3 +424,96 @@ int psm_db_init(void)
     CcspTraceInfo(("psm_db_init: touched /tmp/psm_sqlite_ready\n"));
     return 0;
 }
+
+/* -----------------------------------------------------------------------
+ * SQLite → XML export (downgrade-compatibility sync)
+ * --------------------------------------------------------------------- */
+
+/* Map integer CCSP type back to the XML contentType attribute string. */
+static const char *psm_ccsp_type_to_ctype(int ccsp_type)
+{
+    switch (ccsp_type)
+    {
+        case 1:  return "int";
+        case 2:  return "uint";
+        case 3:  return "bool";
+        case 4:  return "datetime";
+        case 5:  return "base64";
+        case 6:  return "long";
+        case 7:  return "ulong";
+        case 8:  return "float";
+        case 9:  return "double";
+        case 10: return "byte";
+        default: return NULL; /* ccsp_string — no contentType */
+    }
+}
+
+int psm_db_export_to_xml(const char *xml_path)
+{
+    sqlite3      *db    = NULL;
+    sqlite3_stmt *stmt  = NULL;
+    FILE         *fp    = NULL;
+    int           rc;
+    int           count = 0;
+    int           ret   = 0;
+
+    rc = sqlite3_open_v2(PSM_DB_PATH, &db,
+                         SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
+                         NULL);
+    if (rc != SQLITE_OK)
+    {
+        CcspTraceError(("psm_db_export_to_xml: cannot open %s: %s\n",
+                        PSM_DB_PATH, db ? sqlite3_errmsg(db) : "unknown"));
+        if (db) sqlite3_close(db);
+        return -1;
+    }
+
+    fp = fopen(xml_path, "w");
+    if (fp == NULL)
+    {
+        CcspTraceError(("psm_db_export_to_xml: cannot open %s for write\n", xml_path));
+        sqlite3_close(db);
+        return -1;
+    }
+
+    fprintf(fp, "<?xml version=\"1.0\"  encoding=\"UTF-8\" ?>\n<Provision>\n");
+
+    rc = sqlite3_prepare_v2(db,
+             "SELECT name, type, value FROM psm_records ORDER BY name;",
+             -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+    {
+        CcspTraceError(("psm_db_export_to_xml: prepare failed: %s\n", sqlite3_errmsg(db)));
+        ret = -1;
+        goto out;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        const char *name  = (const char *)sqlite3_column_text(stmt, 0);
+        int         type  = sqlite3_column_int(stmt, 1);
+        const char *value = (const char *)sqlite3_column_text(stmt, 2);
+        const char *ctype;
+
+        if (!name || !value)
+            continue;
+
+        ctype = psm_ccsp_type_to_ctype(type);
+        if (ctype)
+            fprintf(fp, "  <Record name=\"%s\" type=\"astr\" contentType=\"%s\">%s</Record>\n",
+                    name, ctype, value);
+        else
+            fprintf(fp, "  <Record name=\"%s\" type=\"astr\">%s</Record>\n",
+                    name, value);
+        count++;
+    }
+
+    fprintf(fp, "</Provision>\n");
+    CcspTraceInfo(("psm_db_export_to_xml: exported %d records to %s\n", count, xml_path));
+
+out:
+    if (stmt) sqlite3_finalize(stmt);
+    if (fp)   fclose(fp);
+    sqlite3_close(db);
+    return ret;
+}
