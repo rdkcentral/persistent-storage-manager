@@ -100,7 +100,9 @@
 
 #include <sys/time.h>
 
+#ifdef CORD_ENABLED
 #include <cord.h>
+#endif
 #include <errno.h>
 
 
