@@ -325,17 +325,7 @@ static int load_records(const char *file)
             unsigned int stored_count = 0;
 
 
-            if (rec->type && strcmp(rec->type, "sint") == 0) {
-                char *endptr = NULL;
-                errno = 0;
-                long v = strtol(val, &endptr, 10);
-                if (errno != 0 || endptr == val) {
-                    CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
-                                    __FUNCTION__, rec->name, val));
-                } else {
-                    set_rc = cord_set_i32(rec->name, (int32_t)v, CORD_FLAG_PERSIST_ASYNC);
-                }
-            } else if (rec->type && strcmp(rec->type, "uint") == 0) {
+            if (rec->ctype && strcmp(rec->ctype, "uint") == 0) {
                 char *endptr = NULL;
                 errno = 0;
                 unsigned long v = strtoul(val, &endptr, 10);
@@ -345,9 +335,13 @@ static int load_records(const char *file)
                 } else {
                     set_rc = cord_set_u32(rec->name, (uint32_t)v, CORD_FLAG_PERSIST_ASYNC);
                 }
-            } else if (rec->type && strcmp(rec->type, "bool") == 0) {
+            } else if (rec->ctype && strcmp(rec->ctype, "bool") == 0) {
                 bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
                 set_rc = cord_set_bool(rec->name, bval, CORD_FLAG_PERSIST_ASYNC);
+            } else if (rec->ctype && strcmp(rec->ctype, "ip4Addr") == 0) {
+                set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_ASYNC);
+            } else if (rec->ctype && strcmp(rec->ctype, "datetime") == 0) {
+                set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_ASYNC);
             } else {
                 /* astr, bstr, hcxt, enum, unknown — store as string */
                 set_rc = cord_set_string(rec->name, val, CORD_FLAG_PERSIST_ASYNC);
@@ -455,17 +449,7 @@ static int insert_record(struct psm_record *new, int overwrite)
         }
         /* else: key not found — also fall through to cord_set (insert) */
 
-        if (new->type && strcmp(new->type, "sint") == 0) {
-            char *endptr = NULL;
-            errno = 0;
-            long v = strtol(val, &endptr, 10);
-            if (errno != 0 || endptr == val) {
-                CcspTraceError(("%s: sint parse fail for '%s'='%s'\n",
-                                __FUNCTION__, new->name, val));
-                return -1;
-            }
-            set_rc = cord_set_i32(new->name, (int32_t)v, CORD_FLAG_PERSIST_ASYNC);
-        } else if (new->type && strcmp(new->type, "uint") == 0) {
+        if (new->ctype && strcmp(new->ctype, "uint") == 0) {
             char *endptr = NULL;
             errno = 0;
             unsigned long v = strtoul(val, &endptr, 10);
@@ -475,9 +459,13 @@ static int insert_record(struct psm_record *new, int overwrite)
                 return -1;
             }
             set_rc = cord_set_u32(new->name, (uint32_t)v, CORD_FLAG_PERSIST_ASYNC);
-        } else if (new->type && strcmp(new->type, "bool") == 0) {
+        } else if (new->ctype && strcmp(new->ctype, "bool") == 0) {
             bool bval = (strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0);
             set_rc = cord_set_bool(new->name, bval, CORD_FLAG_PERSIST_ASYNC);
+        } else if (new->ctype && strcmp(new->ctype, "ip4Addr") == 0) {
+            set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_ASYNC);
+        } else if (new->ctype && strcmp(new->ctype, "datetime") == 0) {
+            set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_ASYNC);
         } else {
             /* astr, bstr, hcxt, enum, unknown — store as string */
             set_rc = cord_set_string(new->name, val, CORD_FLAG_PERSIST_ASYNC);
