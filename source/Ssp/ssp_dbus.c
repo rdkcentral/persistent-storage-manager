@@ -1537,7 +1537,15 @@ int PsmDbusInit()
 	}
     }
 
-    CCSP_Message_Bus_Init(CName, CCSP_MSG_BUS_CFG, &bus_handle,(CCSP_MESSAGE_BUS_MALLOC) Ansc_AllocateMemory_Callback, Ansc_FreeMemory_Callback);
+    int bus_init_result = CCSP_Message_Bus_Init(CName, CCSP_MSG_BUS_CFG, &bus_handle, (CCSP_MESSAGE_BUS_MALLOC)Ansc_AllocateMemory_Callback, Ansc_FreeMemory_Callback);
+
+    // CID :71410 Unchecked return value
+    //Check the return value of CCSP_Message_Bus_Init
+    if (bus_init_result != CCSP_SUCCESS) {
+        CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : CCSP_Message_Bus_Init failed with error code %d\n", bus_init_result));
+        return -1;  // Or handle the failure accordingly
+    }
+
     g_psmHealth = CCSP_COMMON_COMPONENT_HEALTH_Yellow;
     /* Wait for CR ready */
     waitConditionReady(bus_handle, CrName, CCSP_DBUS_PATH_CR, CName);

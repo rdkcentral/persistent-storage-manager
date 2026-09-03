@@ -173,10 +173,18 @@ PsmSysroSysRamNotify
     PPSM_SYS_REGISTRY_OBJECT       pMyObject       = (PPSM_SYS_REGISTRY_OBJECT    )hThisObject;
    // PANSC_TIMER_DESCRIPTOR_OBJECT   pRegTimerObj    = (PANSC_TIMER_DESCRIPTOR_OBJECT)pMyObject->hRegTimerObj;
 //CcspTraceInfo(("\n##PsmSysroSysRamNotify() begins##\n"));
+
+    // CID 340552: Data race condition - Fixed by adding lock around access to bSaveInProgress
+    AnscAcquireLock(&pMyObject->AccessLock);
+
     if ( pMyObject->bNoSave || pMyObject->bSaveInProgress )
     {
+        // Release the lock before returning
+        AnscReleaseLock(&pMyObject->AccessLock);
         return  ANSC_STATUS_SUCCESS;
     }
+    // Release the lock after the check
+    AnscReleaseLock(&pMyObject->AccessLock);
 
     switch ( ulEvent )
     {

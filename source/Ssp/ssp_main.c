@@ -382,7 +382,14 @@ int main(int argc, char* argv[])
     if(ret != 0){
         return 1;
     }
-    creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    // Coverity Fix: Handle return value from creat to avoid unhandled error (CID 257719)
+    int fd_creat = creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (fd_creat == -1) {
+        perror("Error creating file /tmp/psm_initialized");
+        return 1; // Handle the error
+    }
+    close(fd_creat); // Close the file descriptor after use
+
     if(!blocklist_ret){
         update_process_caps(&appcaps);
         read_capability(&appcaps);
