@@ -288,14 +288,12 @@ static int load_records(const char *file)
     struct psm_record *rec;
     unsigned int record_count = 0;
 #ifdef CORD_ENABLED
-    bool skip_cord_set = false;
+    bool psm_initialized = false;
     {
-        bool psm_init = false;
-        cord_rc_t get_rc = cord_get_bool("psm_initialized", &psm_init);
-        if (get_rc == CORD_RC_SUCCESS && psm_init)
+        cord_rc_t get_rc = cord_get_bool("psm_initialized", &psm_initialized);
+        if (get_rc != CORD_RC_SUCCESS)
         {
-            CcspTraceInfo(("%s: psm_initialized is true in CORD, skipping cord_set calls\n", __FUNCTION__));
-            skip_cord_set = true;
+            psm_initialized = false;
         }
     }
 #endif /* CORD_ENABLED */
@@ -318,8 +316,34 @@ static int load_records(const char *file)
         record_count++;
 
 #ifdef CORD_ENABLED
-        /* Store into CORD */
-        if (!skip_cord_set) {
+        /* Store into CORD: check per-record existence if initialized, skip only if present */
+        bool skip_set = false;
+        if (psm_initialized)
+        {
+            /* Check if this record already exists in CORD */
+            cord_rc_t check_rc = CORD_RC_NOT_FOUND;
+            if (rec->ctype && strcmp(rec->ctype, "uint") == 0) {
+                uint32_t dummy_val;
+                check_rc = cord_get_u32(rec->name, &dummy_val);
+            } else if (rec->ctype && strcmp(rec->ctype, "bool") == 0) {
+                bool dummy_val;
+                check_rc = cord_get_bool(rec->name, &dummy_val);
+            } else {
+                /* astr, bstr, hcxt, enum, ip4Addr, datetime, unknown — check as string */
+                char *dummy_val = NULL;
+                check_rc = cord_get_string(rec->name, &dummy_val);
+                if (check_rc == CORD_RC_SUCCESS && dummy_val) {
+                    free(dummy_val);
+                }
+            }
+            /* Skip cord_set only if record already exists in CORD */
+            skip_set = (check_rc == CORD_RC_SUCCESS);
+            if (skip_set) {
+                CcspTraceDebug(("%s: record '%s' already in CORD, skipping cord_set\n", __FUNCTION__, rec->name));
+            }
+        }
+
+        if (!skip_set) {
             const char *val = rec->value ? rec->value : "";
             cord_rc_t   set_rc = CORD_RC_SUCCESS;
             unsigned int stored_count = 0;
