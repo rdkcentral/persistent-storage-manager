@@ -419,17 +419,15 @@ static int insert_record(struct psm_record *new, int overwrite)
 
 #ifdef CORD_ENABLED
     {
-        bool skip_cord_set = false;
-        {
-            bool psm_init = false;
-            cord_rc_t get_rc = cord_get_bool("psm_initialized", &psm_init);
-            if (get_rc == CORD_RC_SUCCESS && psm_init)
-            {
-                CcspTraceInfo(("%s: psm_initialized is true in CORD, skipping cord_set for '%s'\n", __FUNCTION__, new->name));
-                skip_cord_set = true;
-            }
-        }
-        if (!skip_cord_set) {
+        bool psm_init = false;
+        cord_rc_t psm_init_rc = cord_get_bool("psm_initialized", &psm_init);
+        /* Once PSM has completed its one-time default-load phase, existing keys
+         * must not be clobbered — but a key that is new to this config revision
+         * can still be missing on a device whose psm_initialized flag was
+         * persisted true by an earlier revision, so existence must always be
+         * checked rather than skipping the write outright. */
+        bool skip_existing = (psm_init_rc == CORD_RC_SUCCESS && psm_init);
+
         cord_value_t *pExisting = NULL;
         cord_rc_t    get_rc;
         cord_rc_t    set_rc = CORD_RC_SUCCESS;
@@ -440,14 +438,15 @@ static int insert_record(struct psm_record *new, int overwrite)
         if (get_rc == CORD_RC_SUCCESS) {
             /* Key exists */
             cord_free_values(pExisting);
-            if (!overwrite) {
-                /* overwrite=0: leave existing value untouched */
+            if (!overwrite || skip_existing) {
+                /* leave existing value untouched */
+                CcspTraceInfo(("%s: '%s' already exists in CORD, skipping cord_set\n", __FUNCTION__, new->name));
                 record_free(new);
                 return 0;
             }
-            /* overwrite!=0: fall through to cord_set below */
+            /* overwrite!=0 and PSM not yet initialized: fall through to cord_set below */
         }
-        /* else: key not found — also fall through to cord_set (insert) */
+        /* else: key not found in CORD — backfill it regardless of psm_initialized */
 
         if (new->ctype && strcmp(new->ctype, "uint") == 0) {
             char *endptr = NULL;
@@ -479,7 +478,6 @@ static int insert_record(struct psm_record *new, int overwrite)
             CcspTraceWarning(("%s: cord_set persist failed (in-memory ok) rc=%d for '%s'\n",
                             __FUNCTION__, (int)set_rc, new->name));
         }
-        } /* if (!skip_cord_set) */
     }
 #endif /* CORD_ENABLED */
 
