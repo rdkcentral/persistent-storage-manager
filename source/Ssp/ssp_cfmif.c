@@ -321,7 +321,7 @@ static int load_records(const char *file)
         if (psm_initialized)
         {
             /* Check if this record already exists in CORD */
-            cord_rc_t check_rc = CORD_RC_NOT_FOUND;
+            cord_rc_t check_rc;
             if (rec->ctype && strcmp(rec->ctype, "uint") == 0) {
                 uint32_t dummy_val;
                 check_rc = cord_get_u32(rec->name, &dummy_val);
