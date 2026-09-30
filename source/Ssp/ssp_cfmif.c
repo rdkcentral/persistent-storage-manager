@@ -321,24 +321,11 @@ static int load_records(const char *file)
         if (psm_initialized)
         {
             /* Check if this record already exists in CORD */
-            cord_rc_t check_rc;
-            if (rec->ctype && strcmp(rec->ctype, "uint") == 0) {
-                uint32_t dummy_val;
-                check_rc = cord_get_u32(rec->name, &dummy_val);
-            } else if (rec->ctype && strcmp(rec->ctype, "bool") == 0) {
-                bool dummy_val;
-                check_rc = cord_get_bool(rec->name, &dummy_val);
-            } else {
-                /* astr, bstr, hcxt, enum, ip4Addr, datetime, unknown — check as string */
-                char *dummy_val = NULL;
-                check_rc = cord_get_string(rec->name, &dummy_val);
-                if (check_rc == CORD_RC_SUCCESS && dummy_val) {
-                    free(dummy_val);
-                }
-            }
-            /* Skip cord_set only if record already exists in CORD */
-            skip_set = (check_rc == CORD_RC_SUCCESS);
-            if (skip_set) {
+            cord_value_t *pExisting = NULL;
+            cord_rc_t check_rc = cord_get(rec->name, &pExisting);
+            if (check_rc == CORD_RC_SUCCESS) {
+                cord_free_values(pExisting);
+                skip_set = true;
                 CcspTraceDebug(("%s: record '%s' already in CORD, skipping cord_set\n", __FUNCTION__, rec->name));
             }
         }
