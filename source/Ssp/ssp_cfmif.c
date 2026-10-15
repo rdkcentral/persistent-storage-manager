@@ -2208,6 +2208,11 @@ int backup_file (const char *bkupFile, const char *localFile)
         CcspTraceError(("%s : munmap failed %d \n",__FUNCTION__,__LINE__));
   }
 
+  /* Added fsync to avoid data loss on power disrupt/abrupt reboots */
+  if(fsync(fd_to) < 0) {
+        CcspTraceError(("%s : fsync for %s failed \n",__FUNCTION__, bkupFile));
+  }
+
   if(close(fd_to) < 0) {
         fd_to = -1;
                 CcspTraceError(("%s : closing file descriptor failed during db backup %d \n",__FUNCTION__,__LINE__));
