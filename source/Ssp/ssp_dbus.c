@@ -658,6 +658,11 @@ int  getParameterValues(
 
     pSysIraIf = (PSYS_IRA_INTERFACE)pSysInfoRepository->GetIraIf((ANSC_HANDLE)pSysInfoRepository);
 
+    if ( pSysIraIf == NULL )
+    {
+        CcspTraceError(("getParameterValues- pSysIraIf is NULL\n"));
+        return CCSP_FAILURE;
+    }
 
     pSysIraIf->AcqThreadLock(pSysIraIf->hOwnerContext);
 
@@ -1253,7 +1258,7 @@ int getParameterNames(
         CcspTraceInfo(("!!! PSM is not ready !!!\n"));
         return CCSP_FAILURE;
     }
-    if ( !parameterName )
+    if ( !parameterName || !val_size || !param_val )
     {
         CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : PSM Input parameter invalid for getParameterNames!\n"));
         return CCSP_FAILURE;
@@ -1274,6 +1279,12 @@ int getParameterNames(
     }
 
     pSysIraIf = (PSYS_IRA_INTERFACE)pSysInfoRepository->GetIraIf((ANSC_HANDLE)pSysInfoRepository);
+
+    if ( pSysIraIf == NULL )
+    {
+        CcspTraceError(("getParameterNames- pSysIraIf is NULL\n"));
+        return CCSP_FAILURE;
+    }
 
     pSysIraIf->AcqThreadLock(pSysIraIf->hOwnerContext);
     hSysRoot = 
@@ -1304,7 +1315,7 @@ int getParameterNames(
     {
         ulNameSize = SYS_MAX_RECORD_NAME_SIZE;
 
-         pSysIraIf->EnumRecord
+         if ( pSysIraIf->EnumRecord
                 (
                     pSysIraIf->hOwnerContext,
                     hSysRoot,
@@ -1313,7 +1324,12 @@ int getParameterNames(
                     &ulNameSize,
                     NULL,
                     NULL
-                );
+                ) != ANSC_STATUS_SUCCESS )
+         {
+             /* avoid using a stale/uninitialized recordName when the enum call fails */
+             continue;
+         }
+
         if ( strstr(recordName, parameterName) == recordName )
         {
             if ( nextLevel )
@@ -1358,8 +1374,6 @@ int getParameterNames(
 
             if ( j == 0 )
             {
-                *val_size = *val_size + 1;
-
                 pParameterInfo = AnscAllocateMemory(sizeof(PARAMETER_INFO));
                 if(pParameterInfo == NULL)
                 {
@@ -1371,7 +1385,7 @@ int getParameterNames(
                 if(pParameterInfo->val == NULL)
                 {
                       CcspTraceInfo(("Memory Allocation failed - %s : %d\n", __FUNCTION__, __LINE__));
-                      free(pParameterInfo);
+                      AnscFreeMemory(pParameterInfo);
                       ret = CCSP_FAILURE;
                       goto EXIT;
                 }
@@ -1380,8 +1394,8 @@ int getParameterNames(
                 if(pParameterInfo->val->parameterName == NULL)
                 {
                       CcspTraceInfo(("Memory Allocation failed - %s : %d\n", __FUNCTION__, __LINE__));
-                      free(pParameterInfo->val);
-                      free(pParameterInfo);
+                      AnscFreeMemory(pParameterInfo->val);
+                      AnscFreeMemory(pParameterInfo);
                       ret = CCSP_FAILURE;
                       goto EXIT;
                 }
@@ -1390,13 +1404,14 @@ int getParameterNames(
 		if(rc != EOK)
 		{
 		    ERR_CHK(rc);
-                    free(pParameterInfo->val->parameterName);
-                    free(pParameterInfo->val);
-                    free(pParameterInfo);
+                    AnscFreeMemory(pParameterInfo->val->parameterName);
+                    AnscFreeMemory(pParameterInfo->val);
+                    AnscFreeMemory(pParameterInfo);
                     ret = CCSP_FAILURE;
                     goto EXIT;
 		}
 
+                *val_size = *val_size + 1;
                 AnscSListPushEntry(&ParameterInfoList, &pParameterInfo->Linkage);
             }
         }
@@ -1432,12 +1447,37 @@ int getParameterNames(
 
 EXIT:
 
+{
+    /* drain any nodes left on an error exit to avoid leaking them */
+    PSINGLE_LINK_ENTRY pLeakEntry = NULL;
+    while ((pLeakEntry = AnscSListPopEntry(&ParameterInfoList)) != NULL)
+    {
+        pParameterInfo = ACCESS_CONTAINER(pLeakEntry, PARAMETER_INFO, Linkage);
+
+        if (pParameterInfo)
+        {
+            if (pParameterInfo->val)
+            {
+                if (pParameterInfo->val->parameterName)
+                {
+                    AnscFreeMemory(pParameterInfo->val->parameterName);
+                }
+                AnscFreeMemory(pParameterInfo->val);
+            }
+            AnscFreeMemory(pParameterInfo);
+        }
+    }
+}
+
     if ( hSysRoot )
     {
         pSysIraIf->CloseFolder(pSysIraIf->hOwnerContext, hSysRoot);
     }
 
-    pSysIraIf->RelThreadLock(pSysIraIf->hOwnerContext);
+    if ( pSysIraIf )
+    {
+        pSysIraIf->RelThreadLock(pSysIraIf->hOwnerContext);
+    }
         //CcspTraceInfo(("getParameterNames ends\n"));
     return ret;
 }
@@ -1604,6 +1644,7 @@ int PsmDbusInit()
     if ( !pDslhCpeController )
     {
         CcspTraceWarning(("CANNOT Create pDslhCpeController... Exit!\n"));
+        return -1;
     }
 
     pDslhCpeController->SetDbusHandle((ANSC_HANDLE)pDslhCpeController, (ANSC_HANDLE)bus_handle);

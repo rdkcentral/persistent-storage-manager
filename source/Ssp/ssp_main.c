@@ -382,7 +382,15 @@ int main(int argc, char* argv[])
     if(ret != 0){
         return 1;
     }
-    creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    int initFd = creat("/tmp/psm_initialized", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (initFd < 0)
+    {
+        CcspTraceError(("Failed to create /tmp/psm_initialized: %d - %s\n", errno, strerror(errno)));
+    }
+    else
+    {
+        close(initFd);
+    }
     if(!blocklist_ret){
         update_process_caps(&appcaps);
         read_capability(&appcaps);

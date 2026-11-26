@@ -173,6 +173,12 @@ PsmSysroSysRamNotify
     PPSM_SYS_REGISTRY_OBJECT       pMyObject       = (PPSM_SYS_REGISTRY_OBJECT    )hThisObject;
    // PANSC_TIMER_DESCRIPTOR_OBJECT   pRegTimerObj    = (PANSC_TIMER_DESCRIPTOR_OBJECT)pMyObject->hRegTimerObj;
 //CcspTraceInfo(("\n##PsmSysroSysRamNotify() begins##\n"));
+    /*
+     * Do not take AccessLock here: this callback runs under the SysIra ThreadLock and the timer
+     * takes AccessLock -> ThreadLock, so that would invert the order. ThreadLock serializes these
+     * writes with the timer's writes, but not with the timer's earlier bNeedFlush/LastRegWriteAt
+     * reads under AccessLock. That race is benign: a stale read only delays the flush by one tick.
+     */
     if ( pMyObject->bNoSave || pMyObject->bSaveInProgress )
     {
         return  ANSC_STATUS_SUCCESS;

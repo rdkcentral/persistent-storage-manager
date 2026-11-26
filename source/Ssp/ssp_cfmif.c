@@ -560,15 +560,20 @@ int merge_missing_Partner_params()
             {
                 CcspTraceInfo(("data is not NULL %d\n",len));
                 memset( data, 0, ( sizeof(char) * (len + 1) ));
-                fread( data, 1, len, fp );
+                if ( fread( data, 1, len, fp ) != (size_t)len )
+                {
+                    CcspTraceError(("Failed to read %s file\n", BOOTSTRAP_INFO_FILE));
+                    free(data);
+                    fclose(fp);
+                    return -1;
+                }
             }
             else
             {
                 CcspTraceInfo(("data pointer is NULL \n"));
                 fclose(fp);
                 return -1;
-            }
-            
+            }         
         }
 
 	/* CID 190396 fix*/
@@ -724,7 +729,7 @@ static int import_custom_params(int overwrite)
         return -1;
 
     for (i = 0; i < cus_cnt; i++) {
-        if (!cus_params[i].name || !strlen(cus_params[i].name)) {
+        if (cus_params[i].name[0] == '\0') {
             CcspTraceError(("%s: invalid custom param\n", __FUNCTION__));
             continue;
         }
@@ -1400,7 +1405,7 @@ static int import_custom_partners_params(int overwrite)
 
     for (i = 0; i < cus_cnt1; i++) 
 	{
-        if (!cus_params[i].name || !strlen(cus_params[i].name)) {
+        if (cus_params[i].name[0] == '\0') {
             CcspTraceError(("%s: invalid custom partners param\n", __FUNCTION__));
             continue;
         }
@@ -1752,7 +1757,14 @@ static ANSC_STATUS FileReadToBuffer (const char *file, char **buf, ULONG *size)
 static void DumpRecord (const PsmRecord_t *rec)
 {
     PsmHalDbg(("  Rec.name   %s\n", rec->name));
-    PsmHalDbg(("  Rec.value  %s\n", rec->value));
+    if (strstr(rec->name, "Passphrase") != NULL)
+	{
+        PsmHalDbg(("  Rec.value  <hidden>\n"));
+	}
+    else
+	{
+        PsmHalDbg(("  Rec.value  %s\n", rec->value));
+	}
 
     switch (rec->type)
     {
@@ -1953,8 +1965,10 @@ static ANSC_STATUS NodeGetRecord (PANSC_XML_DOM_NODE_OBJECT node, PsmRecord_t *r
     /* value */
     size = sizeof(rec->value) - 1;
     if (node->GetDataString(node, NULL, rec->value, &size) != ANSC_STATUS_SUCCESS)
-        CcspTraceInfo(("NodeGetRecord -> node->GetDataString(node, NULL, rec->value, &size) != ANSC_STATUS_SUCCESS\n"));    
+    {
+        CcspTraceError(("%s: failed to get value of record '%s'\n", __FUNCTION__, rec->name));
         return ANSC_STATUS_FAILURE;
+    }
     rec->value[size] = '\0';
 
     return ANSC_STATUS_SUCCESS;
@@ -1964,10 +1978,15 @@ static ANSC_STATUS AddRecToXml (const PsmRecord_t *rec, PANSC_XML_DOM_NODE_OBJEC
 {
     PANSC_XML_DOM_NODE_OBJECT node;
 
-    if ((node = xml->AddChildByName(xml, ELEM_RECORD)) == NULL)
-    	CcspTraceInfo(("AddRecToXml-> node = xml->AddChildByName(xml, ELEM_RECORD) \n"));    
+    /* AddChildByName() reuses an existing "Record" child, so build a new node explicitly */
+    if ((node = (PANSC_XML_DOM_NODE_OBJECT)AnscCreateXmlDomNode(NULL)) == NULL)
+    {
+        CcspTraceError(("%s: failed to create XML node for record '%s'\n", __FUNCTION__, rec->name));
         return ANSC_STATUS_FAILURE;
-
+    }
+    AnscXmlDomNodeSetName(node, ELEM_RECORD);
+    AnscXmlDomNodeAddChild(xml, node);
+	
     if (RecordSetNode(rec, node) != ANSC_STATUS_SUCCESS)
     {
         xml->DelChild(xml, node);
@@ -1990,7 +2009,7 @@ static ANSC_STATUS XmlToBuffer (PANSC_XML_DOM_NODE_OBJECT xml, char **buf, ULONG
     {
         if (newBuf)
             AnscFreeMemory(newBuf);
-            CcspTraceInfo(("XmlToBuffer ends->newBuf"));    
+        CcspTraceError(("%s: failed to get encoded size, allocate buffer or encode XML\n", __FUNCTION__));
         return ANSC_STATUS_FAILURE;
     }
 
@@ -2005,16 +2024,18 @@ static ANSC_STATUS XmlToFile (PANSC_XML_DOM_NODE_OBJECT xml, const char *file)
     ULONG size;
     ANSC_HANDLE pFile;
 //    CcspTraceInfo(("XmlToFile begins\n"));    
-    if (XmlToBuffer(xml, &buf, &size) != ANSC_STATUS_SUCCESS) 
-     	CcspTraceInfo(("XmlToFile -> XmlToBuffer(xml, &buf, &size) != ANSC_STATUS_SUCCESS\n"));
+    if (XmlToBuffer(xml, &buf, &size) != ANSC_STATUS_SUCCESS)
+    {
+        CcspTraceError(("%s: failed to convert XML to buffer for file %s\n", __FUNCTION__, file));
         /*Coverity Fix CID:67400 RESOURCE_LEAK */
         if( buf != NULL)
            AnscFreeMemory(buf);
         return ANSC_STATUS_FAILURE;
-    
+    }
 
-    if ((pFile = AnscOpenFile((char *)file, 
-                    ANSC_FILE_TYPE_RDWR, ANSC_FILE_TYPE_RDWR)) == NULL)
+    if ((pFile = AnscOpenFile((char *)file,
+                    ANSC_FILE_MODE_CREATE | ANSC_FILE_MODE_WRITE | ANSC_FILE_MODE_TRUNC,
+                    ANSC_FILE_TYPE_RDWR)) == NULL)
     {
         AnscFreeMemory(buf);
         CcspTraceInfo(("XmlToFile -> (pFile=open(ANSC_FILE_TYPE_RDWR, ANSC_FILE_TYPE_RDWR))==NULL\n"));       
@@ -2077,7 +2098,6 @@ static PANSC_XML_DOM_NODE_OBJECT ReadCfgXmlWithCustom (const char *path, int ove
     PsmHalParam_t               *cusParams = NULL;
     int                         cusCnt, i;
     char                        *buf = NULL;
-    int                         success = 0;
     int                         missing;
     ULONG                       size;
     errno_t                     rc = -1;
@@ -2132,14 +2152,7 @@ static PANSC_XML_DOM_NODE_OBJECT ReadCfgXmlWithCustom (const char *path, int ove
         }
     }
 
-    success = 1;
-
 done:
-    if (!success && root)
-    {
-        root->Remove(root);
-        root = NULL;
-    }
     if (buf)
         AnscFreeMemory(buf);
     if (cusParams)

@@ -150,6 +150,7 @@ void rbus_type_to_ccsp_type (rbusValueType_t typeVal, enum dataType_e *pType)
 static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams)
 {
     int ret = RBUS_ERROR_SUCCESS, returnStatus = -1;
+    errno_t safec_rc = -1;
     rbusValue_t value;
     rbusProperty_t prop;
     rbusValueType_t type;
@@ -194,7 +195,12 @@ static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
             CcspTraceInfo(("Memory Allocation failed - %s : %d\n", __FUNCTION__, __LINE__));
             ret = RBUS_ERROR_BUS_ERROR;
         }
-        strcpy_s(val->parameterName, paramNameLen,  parameterName);
+        safec_rc = strcpy_s(val->parameterName, paramNameLen,  parameterName);
+        if (safec_rc != EOK)
+        {
+            ERR_CHK(safec_rc);
+            ret = RBUS_ERROR_BUS_ERROR;
+        }
 
        /* Copy the Value */
         val->parameterValue = AnscAllocateMemory(paramValLen);
@@ -372,6 +378,7 @@ static int getParameterNames_rbus(rbusObject_t inParams, rbusObject_t outParams)
 static int delParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams)
 {
     int rc = RBUS_ERROR_SUCCESS, result = -1;
+    errno_t safec_rc = -1;
     rbusProperty_t prop;
     int i = 0;
     int param_size = 0;
@@ -396,7 +403,17 @@ static int delParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
         memset(parameterAttribute, 0, 1*sizeof(parameterAttributeStruct_t));
         unsigned int ParameterNameLen = strlen(rbusProperty_GetName(prop))+1;
         parameterAttribute->parameterName = AnscAllocateMemory(ParameterNameLen);
-        strcpy_s(parameterAttribute->parameterName, ParameterNameLen, rbusProperty_GetName(prop));
+        safec_rc = strcpy_s(parameterAttribute->parameterName, ParameterNameLen, rbusProperty_GetName(prop));
+        if (safec_rc != EOK)
+        {
+            ERR_CHK(safec_rc);
+            setOutparams(outParams, (char *)rbusProperty_GetName(prop), false);
+            if (parameterAttribute->parameterName)
+                AnscFreeMemory(parameterAttribute->parameterName);
+            AnscFreeMemory(parameterAttribute);
+            prop = rbusProperty_GetNext(prop);
+            continue;
+        }
 
         /*Set Parameter Attributes*/
         parameterAttribute->notificationChanged = 0;
